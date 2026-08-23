@@ -14,9 +14,18 @@ The only outstanding items are human/account-owner actions listed at the bottom.
   prior granular commit subjects are preserved in that commit's body. The pre-rebuild
   history remains locally under the `rollback-pre-contest-audit-b7c053bb` tag.
 - **Frozen date**: 2026-08-23.
-- **Production is unchanged by this audit** — no code was redeployed. The deployed
-  services are byte-for-byte the verified-working build; the repo commit above differs
-  only in comments/docs/license (zero runtime behavior change).
+- **Frontend redeployed once, intentionally, at the owner's request** (2026-08-23): a UI
+  pass that recolors the app from indigo/purple to a clean blue (`#3b82f6`) and fixes the
+  empty scene-player for live scenes (synthesises the detection overlay from the real
+  Gemini-detected objects; de-hardcodes the "top recommendation"). Live revision
+  `cineyield-web-00008-56f`. The **backend was not redeployed** — it is the same verified
+  build. Re-verified after deploy: prod smoke 6/6, production browser E2E 8/8 on the live
+  blue site.
+- **Demo starting state (light seed)**: reset so the canonical opportunity
+  (`opp_horizons_rooftop_001`) is clean, leaving a modest existing-pipeline baseline —
+  **2 approved deals · $21,700** — so the demo runs the full journey live and the approval
+  visibly increments analytics. Re-run `scripts/demo-reset.sh <backend>` before each
+  rehearsal.
 
 ## Production URLs
 
