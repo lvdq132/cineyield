@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CineYield</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+:root{
+  --canvas:#09090B;--panel:#141417;--panel2:#1B1B1F;--well:#0C0C0E;
+  --line:rgba(255,255,255,0.055);--line2:rgba(255,255,255,0.10);
+  --ink:#F4F4F5;--ink2:#A1A1AA;--ink3:#65656E;
+  --gold:#6366F1;--gold-hi:#818CF8;--gold-dim:#312E81;
+  --green:#7EBE96;--amber:#CBA04E;--red:#C56B5B;--purple:#9B6BE0;
+  --serif:'Instrument Serif',Georgia,serif;
+  --ui:'Space Grotesk',system-ui,sans-serif;
+  --mono:'Space Mono',ui-monospace,Menlo,monospace;
+}
+body{background:var(--canvas);font-family:var(--ui);-webkit-font-smoothing:antialiased;letter-spacing:0.004em}
+button{font-family:inherit;border:none;background:none;color:inherit;letter-spacing:inherit}
+a{color:var(--gold);text-decoration:none}
+a:hover{color:var(--gold-hi)}
+::-webkit-scrollbar{width:11px;height:11px}
+::-webkit-scrollbar-thumb{background:#1E1E22;border:3px solid var(--canvas)}
+::-webkit-scrollbar-track{background:transparent}
+@keyframes cypulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes cyspin{to{transform:rotate(360deg)}}
+@keyframes cyrise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes cyshimmer{to{background-position:0 0, 220% 0}}
+@media(min-width:1180px){[data-search]{display:flex !important}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+"use strict";
+(function () {
+  // ------------------------------------------------------------------ state
+  var state = { route: undefined, analyzing: false, progress: 0, approved: false };
+  var props = { defaultRoute: "library" };
+  var timer = null;
+
+  function setState(patch) { Object.assign(state, patch); render(); }
+
+  function go(r) {
+    setState({ route: r });
+    try { var el = document.getElementById("cy-content"); if (el) el.scrollTop = 0; } catch (e) {}
+  }
+
+  function analyze() {
+    if (state.analyzing) return;
+    setState({ analyzing: true, progress: 0 });
+    var p = 0;
+    timer = setInterval(function () {
+      p = Math.min(100, p + 8 + Math.random() * 6);
+      setState({ progress: p });
+      if (p >= 100) {
+        clearInterval(timer); timer = null;
+        setTimeout(function () { setState({ analyzing: false, route: "scene" }); }, 550);
+      }
+    }, 220);
+  }
+
+  function approve() { setState({ approved: true }); }
+
+  // ------------------------------------------------------------------ helpers
+  function esc(s) { return String(s); }
+  function H(o) { return o ? " data-hover='" + JSON.stringify(o) + "'" : ""; }
+  function A(action) { return " data-action='" + action + "'"; }
+
+  // ------------------------------------------------------------------ values (ported from support.js DCLogic.renderVals)
+  function computeVals() {
+    var route = state.route != null ? state.route : (props.defaultRoute || "library");
+
+    // hover objects
+    var ctaHover = { background: "var(--gold-hi)" };
+    var ghostHover = { borderColor: "var(--gold)", color: "var(--gold-hi)" };
+    var linkHover = { color: "var(--gold)" };
+    var topHover = { color: "var(--ink)" };
+    var primaryBtnHover = { filter: "brightness(1.12)" };
+    var cardHover = { background: "var(--panel2)" };
+    var rowHover = { background: "rgba(255,255,255,0.03)" };
+
+    // top nav
+    var topnav = [["Library", "library"], ["Opportunities", "scene"], ["Marketplace", "marketplace"], ["Deals", "deal"], ["Analytics", "analytics"]].map(function (pair) {
+      var label = pair[0], r = pair[1];
+      var on = route === r || (r === "scene" && route === "opportunity");
+      return { label: label, r: r, style: "display:inline-flex;align-items:center;height:60px;padding:0;border:none;background:none;font:500 14px var(--ui);letter-spacing:-0.01em;cursor:pointer;color:" + (on ? "var(--ink)" : "var(--ink2)") + ";box-shadow:" + (on ? "inset 0 -2px 0 var(--gold)" : "none") };
+    });
+
+    // library stat strip
+    var dealsCount = state.approved ? 19 : 18;
+    var statVal = function (color) { return "font:600 26px var(--ui);letter-spacing:-0.4px;color:" + color + ";line-height:0.9;margin-top:9px"; };
+    var libStats = [
+      { label: "Scenes analyzed", value: "1,284", val: statVal("var(--ink)") },
+      { label: "Opportunities", value: "342", val: statVal("var(--ink)") },
+      { label: "Active deals", value: String(dealsCount), val: statVal("var(--ink)") },
+      { label: "Approvals pending", value: "5", val: statVal("var(--amber)") }
+    ];
+
+    // catalog
+    var thumb = function (g) { return "position:relative;height:158px;background:" + g; };
+    var stColor = function (s) { return s === "Analyzed" ? "var(--green)" : s === "Analyzing" ? "var(--gold)" : "var(--ink3)"; };
+    var badge = function (s) { return "position:absolute;top:12px;right:12px;padding:4px 9px;border-radius:5px;font:600 9.5px var(--ui);letter-spacing:0.5px;text-transform:uppercase;background:rgba(13,11,9,0.62);backdrop-filter:blur(4px);color:" + stColor(s); };
+    var catalogRaw = [
+      { title: "HORIZONS", sub: "Sci-Fi Drama Series · S2", fmt: "tv series", status: "Analyzed", scenes: "312", opps: "47", val: "$2.84M", updated: "2h ago", g: "radial-gradient(120% 100% at 30% 20%,#3a3050,#221d2e 55%,#0d0b0f)" },
+      { title: "Echoes of Tomorrow", sub: "Feature Film", fmt: "film", status: "Analyzed", scenes: "88", opps: "12", val: "$960K", updated: "1d ago", g: "radial-gradient(120% 100% at 70% 30%,#2a3a4a,#1a222c 55%,#0b0d10)" },
+      { title: "Second Chapter", sub: "Microdrama", fmt: "microdrama", status: "Analyzing", scenes: "54", opps: "—", val: "—", updated: "live", g: "radial-gradient(120% 100% at 50% 40%,#4a3030,#2a1e1e 55%,#0f0b0a)" },
+      { title: "Frame by Frame", sub: "Creator Series", fmt: "youtube", status: "Analyzed", scenes: "31", opps: "9", val: "$120K", updated: "3d ago", g: "radial-gradient(120% 100% at 40% 30%,#3a3a2a,#22221a 55%,#0d0d0a)" },
+      { title: "Urban Pulse", sub: "Social Clips", fmt: "social", status: "Queued", scenes: "—", opps: "—", val: "—", updated: "—", g: "radial-gradient(120% 100% at 60% 40%,#2c3238,#191d20 55%,#0a0c0d)" },
+      { title: "North Line", sub: "TV Drama", fmt: "tv series", status: "Analyzed", scenes: "120", opps: "19", val: "$780K", updated: "5d ago", g: "radial-gradient(120% 100% at 35% 25%,#453045,#241e24 55%,#0e0b0e)" }
+    ];
+    var catalog = catalogRaw.map(function (c) { return Object.assign({}, c, { thumb: thumb(c.g), badge: badge(c.status) }); });
+
+    // detected boxes on player
+    var boxOf = function (x, y, w, h, primary) { return "position:absolute;left:" + x + "%;top:" + y + "%;width:" + w + "%;height:" + h + "%;border:" + (primary ? "1.5px solid var(--gold)" : "1px solid rgba(99,102,241,0.5)") + ";background:" + (primary ? "rgba(99,102,241,0.08)" : "transparent"); };
+    var tagOf = function (primary) { return "position:absolute;top:-19px;left:-1px;padding:2px 6px;font:400 9.5px var(--mono);white-space:nowrap;background:" + (primary ? "var(--gold)" : "rgba(13,11,9,0.85)") + ";color:" + (primary ? "#FFFFFF" : "#e9ddc4"); };
+    var boxes = [
+      { label: "Wireless Headphones", conf: 94, box: boxOf(30, 48, 15, 16, true), tag: tagOf(true) },
+      { label: "Smartphone", conf: 92, box: boxOf(58, 60, 9, 13), tag: tagOf(false) },
+      { label: "Smart Speaker", conf: 86, box: boxOf(74, 42, 11, 24), tag: tagOf(false) }
+    ];
+
+    // objects panel
+    var objects = [
+      { label: "Wireless Headphones", cat: "Consumer audio", conf: 94, mark: "var(--gold)" },
+      { label: "Smartphone", cat: "Mobile devices", conf: 92, mark: "#1E1E22" },
+      { label: "Coffee Mug", cat: "Home / beverage", conf: 89, mark: "#1E1E22" },
+      { label: "Smart Speaker", cat: "Smart home", conf: 86, mark: "#1E1E22" },
+      { label: "Table Lamp", cat: "Home / lighting", conf: 83, mark: "#1E1E22" },
+      { label: "Backpack", cat: "Accessories", conf: 81, mark: "#1E1E22" }
+    ];
+
+    // opportunity table
+    var rowBase = function (primary) { return "display:grid;grid-template-columns:1.6fr 1fr 0.7fr 0.9fr 0.9fr 0.8fr 0.9fr 0.9fr 34px;gap:0;padding:13px 22px;border-top:1px solid var(--line);cursor:pointer;" + (primary ? "background:rgba(99,102,241,0.06)" : ""); };
+    var natChip = function (n) { return "display:inline-block;padding:2px 8px;border-radius:2px;font:400 11.5px var(--mono);" + (n >= 85 ? "background:rgba(126,190,150,0.14);color:var(--green)" : n >= 70 ? "background:rgba(203,160,78,0.14);color:var(--amber)" : "background:#1E1E22;color:var(--ink2)"); };
+    var rightsChip = function (r) { return "display:inline-block;padding:2px 8px;border-radius:2px;font:600 10px var(--ui);letter-spacing:0.4px;" + (r === "Clear" ? "background:rgba(126,190,150,0.12);color:var(--green)" : "background:rgba(203,160,78,0.12);color:var(--amber)"); };
+    var oppRaw = [
+      { cat: "Consumer Audio", obj: "Wireless Headphones", tc: "00:12–00:38", screen: "26s", nat: 92, safe: 96, cx: "Low", rights: "Clear", val: "$185,000", primary: true },
+      { cat: "Mobile Devices", obj: "Smartphone", tc: "00:20–00:33", screen: "13s", nat: 78, safe: 95, cx: "Low", rights: "Clear", val: "$74,000" },
+      { cat: "Smart Home", obj: "Smart Speaker", tc: "00:05–00:29", screen: "20s", nat: 74, safe: 93, cx: "Medium", rights: "Clear", val: "$66,000" },
+      { cat: "Home / Beverage", obj: "Coffee Mug", tc: "00:28–00:41", screen: "11s", nat: 71, safe: 94, cx: "Medium", rights: "Review", val: "$38,000" },
+      { cat: "Home / Lighting", obj: "Table Lamp", tc: "00:02–00:44", screen: "34s", nat: 58, safe: 97, cx: "High", rights: "Clear", val: "$22,000" }
+    ];
+    var opportunities = oppRaw.map(function (o) { return Object.assign({}, o, { row: rowBase(o.primary), natChip: natChip(o.nat), rightsChip: rightsChip(o.rights) }); });
+
+    // opportunity detail metrics
+    var bigVal = function (color) { return "font:600 22px var(--ui);letter-spacing:-0.4px;color:" + color + ";margin-top:8px;line-height:1"; };
+    var barOf = function (pct, color) { return "width:" + pct + "%;height:100%;background:" + color; };
+    var cellOf = function (i) { return "padding:18px 22px 20px;" + (i % 3 !== 0 ? "border-left:1px solid var(--line);" : "") + (i > 2 ? "border-top:1px solid var(--line);" : ""); };
+    var oppMetrics = [
+      { k: "Naturalness", v: "92", valStyle: bigVal("var(--green)"), hasBar: true, bar: barOf(92, "var(--green)") },
+      { k: "Brand safety", v: "96", valStyle: bigVal("var(--green)"), hasBar: true, bar: barOf(96, "var(--green)") },
+      { k: "Screen time", v: "26s", valStyle: bigVal("var(--ink)"), hasNote: true, note: "of 32s scene" },
+      { k: "Technical complexity", v: "Low", valStyle: bigVal("var(--ink)"), hasNote: true, note: "already in frame" },
+      { k: "Camera stability", v: "High", valStyle: bigVal("var(--ink)"), hasNote: true, note: "locked-off" },
+      { k: "Rights status", v: "Clear", valStyle: bigVal("var(--green)"), hasNote: true, note: "configured territories" }
+    ].map(function (m, i) { return Object.assign({}, m, { cell: cellOf(i), hasBar: !!m.hasBar, hasNote: !!m.hasNote }); });
+
+    // marketplace matches
+    var mCard = function (blocked) { return "display:flex;align-items:center;gap:14px;padding:15px 18px;background:var(--panel);border-radius:4px;" + (blocked ? "opacity:0.6" : ""); };
+    var scoreStyle = function (s, blocked) { return "font:400 20px var(--mono);color:" + (blocked ? "var(--red)" : s >= 80 ? "var(--green)" : "var(--ink)"); };
+    var statusChip = function (label, kind) {
+      if (!label) return "display:none";
+      var map = { block: "background:rgba(197,107,91,0.14);color:var(--red)", neutral: "background:#1E1E22;color:var(--ink2)" };
+      return "padding:2px 7px;border-radius:2px;font:600 9px var(--ui);letter-spacing:0.5px;" + map[kind];
+    };
+    var matchRaw = [
+      { brand: "Aurora Tech", line: "“Everyday Sound” · $90K–$160K · NA", score: 84, statusLabel: "", kind: "neutral" },
+      { brand: "Pinnacle Performance", line: "“Move Free” · $120K–$200K · NA + EU", score: 79, statusLabel: "", kind: "neutral" },
+      { brand: "NexaLife", line: "“Balance” · $60K–$120K · EU", score: 73, statusLabel: "", kind: "neutral" },
+      { brand: "Vortex Energy", line: "Creative Guardian: adjacency conflicts with reflective tone", score: 41, statusLabel: "BLOCKED", kind: "block", blocked: true },
+      { brand: "Stride Apparel", line: "Rights: category mismatch — apparel not in scene", score: 38, statusLabel: "BLOCKED", kind: "block", blocked: true }
+    ];
+    var matches = matchRaw.map(function (m) { return Object.assign({}, m, { initial: m.brand[0], card: mCard(m.blocked), scoreStyle: scoreStyle(m.score, m.blocked), statusChip: statusChip(m.statusLabel, m.kind) }); });
+
+    var bdRaw = [
+      { k: "Context fit", v: 95 }, { k: "Category fit", v: 100 }, { k: "Visibility", v: 90 },
+      { k: "Brand safety", v: 96 }, { k: "Territory", v: 100 }, { k: "Budget & terms", v: 80 }
+    ];
+    var breakdown = bdRaw.map(function (d) { return Object.assign({}, d, { bar: "width:" + d.v + "%;height:100%;background:var(--gold)" }); });
+
+    // deal guardrails
+    var grGlyph = function (color) { return "width:18px;height:18px;flex:none;display:flex;align-items:center;justify-content:center;font:700 13px var(--mono);color:" + color; };
+    var grTag = function (color) { return "font:600 10px var(--ui);letter-spacing:0.5px;color:" + color; };
+    var guardrails = [
+      { name: "Rights Agent", detail: "Pass · 3 of 4 markets cleared", mark: "✓", status: "PASS", glyph: grGlyph("var(--green)"), tag: grTag("var(--green)") },
+      { name: "Creative Guardian", detail: "No plot / motivation impact", mark: "✓", status: "PASS", glyph: grGlyph("var(--green)"), tag: grTag("var(--green)") },
+      { name: "Brand Accuracy", detail: "Category & product align", mark: "✓", status: "PASS", glyph: grGlyph("var(--green)"), tag: grTag("var(--green)") },
+      { name: "Germany (DE)", detail: "Usage window not cleared", mark: "!", status: "REVIEW", glyph: grGlyph("var(--amber)"), tag: grTag("var(--amber)") }
+    ];
+
+    // agents
+    var agCard = function (hero) { return "padding:17px;border-radius:4px;background:var(--panel);" + (hero ? "border-left:3px solid var(--green)" : "border-left:3px solid transparent"); };
+    var stateChip = function (kind) {
+      var map = { ok: "background:rgba(126,190,150,0.14);color:var(--green)", pass: "background:rgba(126,190,150,0.14);color:var(--green)", ready: "background:rgba(99,102,241,0.14);color:var(--gold)" };
+      return "padding:2px 8px;border-radius:2px;font:600 9.5px var(--ui);letter-spacing:0.5px;" + (map[kind] || map.ok);
+    };
+    var agRaw = [
+      { name: "Scene Agent", role: "Understand content & structure scenes", state: "Complete", kind: "ok", tool: "gemini · video.understand", lat: "1,240ms" },
+      { name: "Market Agent", role: "Query commercial inventory in ClickHouse", state: "Complete", kind: "ok", tool: "mcp-clickhouse · query", lat: "45ms", hero: true },
+      { name: "Brand Agent", role: "Score semantic & audience fit", state: "Complete", kind: "ok", tool: "gemini · fit.score", lat: "820ms" },
+      { name: "Rights Agent", role: "Apply territory / usage / exclusivity", state: "Pass", kind: "pass", tool: "rules.evaluate (deterministic)", lat: "12ms" },
+      { name: "Creative Guardian", role: "Protect story integrity · can veto", state: "Pass", kind: "pass", tool: "gemini · narrative.guard", lat: "910ms" },
+      { name: "Deal Agent", role: "Assemble structured proposal", state: "Ready", kind: "ready", tool: "deal.compose", lat: "8ms" }
+    ];
+    var agents = agRaw.map(function (a) { return Object.assign({}, a, { card: agCard(a.hero), iconColor: a.hero ? "var(--green)" : "var(--gold)", stateChip: stateChip(a.kind) }); });
+
+    var pipeRaw = ["Ingest", "Understand", "Discover", "Match", "Approve", "Activate"];
+    var pipeStep = function (active) { return "padding:7px 13px;border-radius:2px;font:600 11.5px var(--ui);white-space:nowrap;background:" + (active ? "rgba(99,102,241,0.14)" : "var(--well)") + ";color:" + (active ? "var(--gold)" : "var(--ink2)"); };
+    var pipeline = pipeRaw.map(function (label, i) { return { label: label, step: pipeStep(i === 3), arrow: i < pipeRaw.length - 1 }; });
+
+    var traceRaw = [
+      { line: "POST mcp-clickhouse/tools/call → query", dim: false },
+      { line: "SELECT campaign_id, brand_name, final_score", dim: false },
+      { line: "FROM brand_campaigns WHERE category='consumer_audio'", dim: false },
+      { line: "AND max_budget>=100000 AND has(territories,'US')", dim: false },
+      { line: "ORDER BY final_score DESC → 27 rows · 45ms", dim: true }
+    ];
+    var trace = traceRaw.map(function (t) { return { line: t.line, style: t.dim ? "color:#5f8a6c;margin-top:5px" : "" }; });
+
+    // deal audit
+    var dot = function (c) { return "width:8px;height:8px;border-radius:50%;background:" + c + ";flex:none;margin-top:3px"; };
+    var auditBase = [
+      { text: "Scene analyzed · 6 objects, 5 opportunities", who: "Scene Agent", time: "00:00", dot: dot("var(--gold)") },
+      { text: "ClickHouse queried · 27 campaigns, 6 ranked", who: "Market Agent", time: "00:01", dot: dot("var(--green)") },
+      { text: "Rights Pass (3/4) · Creative Guardian Pass", who: "Rights + Guardian", time: "00:02", dot: dot("var(--green)") },
+      { text: "Proposal composed · $185,000 · 12mo", who: "Deal Agent", time: "00:02", dot: dot("var(--gold)") }
+    ];
+    var audit = state.approved
+      ? auditBase.concat([{ text: "Placement APPROVED", who: "Maya Reyes (Producer)", time: "just now", dot: dot("var(--green)") }])
+      : auditBase;
+
+    // analytics
+    var approvedRev = state.approved ? "$1.81M" : "$1.62M";
+    var anBig = function (color) { return "font:600 25px var(--ui);letter-spacing:-0.5px;color:" + color + ";margin-top:8px;line-height:1"; };
+    var anCell = function (i) { return "padding:20px 28px 20px 0;" + (i > 3 ? "border-top:1px solid var(--line);" : ""); };
+    var anStatsRaw = [
+      { label: "Content scanned", value: "6 titles", c: "var(--ink)" },
+      { label: "Opportunities", value: "342", c: "var(--ink)" },
+      { label: "Qualified matches", value: "128", c: "var(--ink)" },
+      { label: "Deals closed", value: String(dealsCount), c: "var(--ink)" },
+      { label: "Est. placement revenue", value: "$4.8M", c: "var(--ink)" },
+      { label: "Approved revenue", value: approvedRev, c: "var(--gold)" },
+      { label: "Time saved", value: "340 hrs", c: "var(--green)" },
+      { label: "Approval cycle", value: "1.8 days", c: "var(--ink)" }
+    ];
+    var anStats = anStatsRaw.map(function (s, i) { return Object.assign({}, s, { cell: anCell(i), valStyle: anBig(s.c) }); });
+
+    var contentRevRaw = [
+      { k: "TV Series", v: "$1.9M", pct: 88 }, { k: "Feature Film", v: "$1.2M", pct: 60 },
+      { k: "Microdrama", v: "$820K", pct: 42 }, { k: "YouTube / Creator", v: "$540K", pct: 28 }, { k: "Social", v: "$310K", pct: 16 }
+    ];
+    var contentRev = contentRevRaw.map(function (r) { return Object.assign({}, r, { bar: "width:" + r.pct + "%;height:100%;background:var(--gold)" }); });
+
+    var topScenesRaw = [
+      { name: "Rooftop Reflection", show: "HORIZONS · S2E3", val: "$185K", gold: true, thumb: "radial-gradient(circle at 40% 30%,#3a3050,#18121f)" },
+      { name: "Coastal Drive", show: "Echoes of Tomorrow", val: "$142K", thumb: "radial-gradient(circle at 60% 40%,#2a3a4a,#12181f)" },
+      { name: "Sci-Fi Corridor", show: "North Line · S1E4", val: "$118K", thumb: "radial-gradient(circle at 50% 50%,#453045,#191219)" },
+      { name: "Night Market", show: "Second Chapter", val: "$96K", thumb: "radial-gradient(circle at 30% 60%,#4a3030,#1f1414)" }
+    ];
+    var topScenes = topScenesRaw.map(function (t) { return Object.assign({}, t, { valStyle: "font:700 14px var(--mono);color:" + (t.gold ? "var(--gold)" : "var(--ink)") }); });
+
+    // analyze steps
+    var p = state.progress;
+    var stepDefs = [
+      { label: "Uploading source", t: 8 },
+      { label: "Storing to Cloud Storage", t: 24 },
+      { label: "Segmenting scenes", t: 44 },
+      { label: "Extracting objects (Gemini)", t: 66 },
+      { label: "Writing scene intelligence (ClickHouse)", t: 86 },
+      { label: "Complete", t: 100 }
+    ];
+    var firstActive = true;
+    var steps = stepDefs.map(function (s) {
+      var done = p >= s.t;
+      var active = !done && firstActive;
+      if (active) firstActive = false;
+      var icon = done
+        ? "width:18px;height:18px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;flex:none"
+        : active
+          ? "width:18px;height:18px;border-radius:50%;border:2px solid var(--gold);border-top-color:transparent;animation:cyspin .8s linear infinite;flex:none"
+          : "width:18px;height:18px;border-radius:50%;border:2px solid #232327;flex:none";
+      var text = "font-size:13px;color:" + (done ? "var(--ink)" : active ? "var(--gold)" : "var(--ink3)");
+      return { label: s.label, done: done, icon: icon, text: text };
+    });
+
+    return {
+      route: route, topnav: topnav,
+      ctaHover: ctaHover, ghostHover: ghostHover, linkHover: linkHover, topHover: topHover,
+      primaryBtnHover: primaryBtnHover, cardHover: cardHover, rowHover: rowHover,
+      primaryBtn: "position:relative;display:inline-flex;align-items:center;gap:9px;height:46px;padding:0 24px;border:1.5px solid transparent;border-radius:11px;background:linear-gradient(var(--panel),var(--panel)) padding-box,linear-gradient(90deg,#f472b6,#818cf8,#22d3ee,#4ade80,#f472b6) border-box;background-size:auto,220% auto;background-position:0 0,0 0;animation:cyshimmer 4s linear infinite;color:var(--ink);font:600 15px var(--ui);cursor:pointer;box-shadow:0 8px 30px rgba(99,102,241,0.20)",
+      secondaryBtn: "display:inline-flex;align-items:center;gap:9px;height:46px;padding:0 24px;border:1px solid var(--line2);border-radius:11px;background:var(--panel);color:var(--ink);font:600 15px var(--ui);cursor:pointer",
+      isLibrary: route === "library", isScene: route === "scene", isOpportunity: route === "opportunity",
+      isMarketplace: route === "marketplace", isDeal: route === "deal", isAgents: route === "agents",
+      isAnalytics: route === "analytics", isStub: route.indexOf("stub-") === 0,
+      stubTitle: ({ "stub-approvals": "Approvals", "stub-rights": "Rights & Compliance", "stub-brands": "Brand Partners", "stub-integrations": "Integrations", "stub-reports": "Reports", "stub-team": "Team", "stub-settings": "Settings" })[route] || "Coming soon",
+      libStats: libStats, catalog: catalog, boxes: boxes, objects: objects, opportunities: opportunities,
+      oppMetrics: oppMetrics, matches: matches, breakdown: breakdown, guardrails: guardrails,
+      agents: agents, pipeline: pipeline, trace: trace, audit: audit, steps: steps,
+      anStats: anStats, contentRev: contentRev, topScenes: topScenes,
+      analyzing: state.analyzing,
+      progressStyle: "width:" + p + "%;height:100%;background:var(--gold);transition:width .2s",
+      progressPct: Math.round(p),
+      approved: state.approved,
+      approveBtn: state.approved
+        ? "display:inline-flex;align-items:center;gap:9px;padding:12px 22px;border:1px solid rgba(126,190,150,0.4);border-radius:3px;background:rgba(126,190,150,0.12);color:var(--green);font:700 13.5px var(--ui);cursor:default"
+        : "display:inline-flex;align-items:center;gap:9px;padding:12px 22px;border:none;border-radius:3px;background:var(--gold);color:#FFFFFF;font:700 13.5px var(--ui);cursor:pointer",
+      approveLabel: state.approved ? "Placement Approved" : "Approve Placement"
+    };
+  }
+
+  // ------------------------------------------------------------------ view fragments
+  function libraryView(v) {
+    return '<div style="animation:cyrise .3s ease">' +
+      // HERO
+      '<div style="position:relative;text-align:center;padding:56px 0 40px">' +
+        '<div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:860px;height:400px;pointer-events:none;background:radial-gradient(46% 52% at 50% 36%,rgba(99,102,241,0.22),transparent 70%)"></div>' +
+        '<div style="position:relative;max-width:760px;margin:0 auto">' +
+          '<div style="display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 14px;border-radius:999px;border:1px solid var(--line2);background:var(--panel);font-size:12.5px;color:var(--ink2);margin-bottom:26px"><span style="width:6px;height:6px;border-radius:50%;background:var(--gold);box-shadow:0 0 8px var(--gold)"></span>Introducing Scene Intelligence<span style="color:var(--ink3)">&rarr;</span></div>' +
+          '<h1 style="font-family:var(--ui);font-weight:700;font-size:64px;line-height:0.98;letter-spacing:-0.035em;margin:0;color:var(--ink)">Every scene, read as<br>sellable inventory</h1>' +
+          '<p style="max-width:560px;margin:22px auto 0;color:var(--ink2);font-size:16px;line-height:1.55">AI scene understanding, rights clearance, and brand matching &mdash; built on Gemini, ClickHouse, and deterministic guardrails. Your catalog, monetized.</p>' +
+          '<div style="display:flex;gap:13px;justify-content:center;margin-top:32px">' +
+            '<button' + A("analyze") + ' style="' + v.primaryBtn + '"' + H(v.primaryBtnHover) + '>Analyze a Cut<span style="opacity:.7;font-size:17px">&rsaquo;</span></button>' +
+            '<button' + A("go:marketplace") + ' style="' + v.secondaryBtn + '"' + H(v.ghostHover) + '>Browse Catalog<span style="opacity:.55;font-size:17px">&rsaquo;</span></button>' +
+          '</div>' +
+          '<div style="display:flex;flex-wrap:wrap;gap:18px;justify-content:center;align-items:center;margin-top:42px;font:500 12.5px var(--ui);color:var(--ink3)"><span>Gemini</span><span style="opacity:.35">/</span><span>ClickHouse</span><span style="opacity:.35">/</span><span>MCP</span><span style="opacity:.35">/</span><span>Cloud Storage</span><span style="opacity:.35">/</span><span>Vertex AI</span></div>' +
+        '</div>' +
+      '</div>' +
+      // stats band
+      '<div style="display:flex;flex-wrap:wrap;justify-content:center;gap:18px 72px;padding:30px 0;margin:8px auto 64px;max-width:880px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)">' +
+        '<div style="text-align:center;flex:none"><div style="font:700 28px var(--ui);letter-spacing:-0.02em;color:var(--gold)">$4.8M</div><div style="font-size:12px;color:var(--ink3);margin-top:4px">Estimated value</div></div>' +
+        v.libStats.map(function (s) { return '<div style="text-align:center;flex:none"><div style="font:700 28px var(--ui);letter-spacing:-0.02em;color:var(--ink)">' + s.value + '</div><div style="font-size:12px;color:var(--ink3);margin-top:4px">' + s.label + '</div></div>'; }).join("") +
+      '</div>' +
+      // showcase
+      '<div style="text-align:center;margin-bottom:6px"><h2 style="font-family:var(--ui);font-weight:700;font-size:40px;letter-spacing:-0.03em;margin:0;color:var(--ink)">Showcase</h2></div>' +
+      '<p style="text-align:center;color:var(--ink2);font-size:15px;margin:0 0 36px">Studios use CineYield to turn their catalog into inventory.</p>' +
+      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px">' +
+        v.catalog.map(function (c) {
+          return '<div' + A("go:scene") + ' style="background:var(--panel);cursor:pointer;border-radius:10px;overflow:hidden;transition:background .18s"' + H(v.cardHover) + '>' +
+            '<div style="' + c.thumb + '"><span style="' + c.badge + '">' + c.status + '</span><span style="position:absolute;bottom:12px;left:14px;font-size:11px;color:rgba(255,255,255,0.66)">' + c.fmt + '</span></div>' +
+            '<div style="padding:16px 16px 18px">' +
+              '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px"><div style="font-family:var(--ui);font-weight:700;letter-spacing:-0.02em;font-size:21px;color:var(--ink);line-height:1.1">' + c.title + '</div><div style="font-size:11px;color:var(--ink3);flex:none">' + c.updated + '</div></div>' +
+              '<div style="font-size:12.5px;color:var(--ink3);margin-top:3px">' + c.sub + '</div>' +
+              '<div style="display:flex;align-items:baseline;gap:8px;margin-top:16px"><span style="font-size:12.5px;color:var(--ink2)">' + c.scenes + ' scenes · ' + c.opps + ' opps</span><span style="margin-left:auto;font:600 15px var(--ui);letter-spacing:-0.3px;color:var(--gold)">' + c.val + '</span></div>' +
+            '</div>' +
+          '</div>';
+        }).join("") +
+      '</div>' +
+    '</div>';
+  }
+
+  function sceneView(v) {
+    return '<div style="animation:cyrise .3s ease">' +
+      '<div style="display:flex;align-items:center;gap:9px;font:400 11.5px var(--mono);color:var(--ink3);margin-bottom:16px"><span' + A("go:library") + ' style="cursor:pointer;color:var(--ink2)"' + H(v.linkHover) + '>Studio Library</span><span>/</span><span style="color:var(--ink2)">HORIZONS · S2E3</span><span>/</span><span style="color:var(--gold)">Rooftop Reflection</span></div>' +
+      '<div style="display:grid;grid-template-columns:1fr 316px;gap:20px;margin-bottom:20px">' +
+        // player
+        '<div style="background:var(--panel);overflow:hidden;border-radius:4px">' +
+          '<div style="position:relative;aspect-ratio:16/9;background:radial-gradient(130% 100% at 50% 14%,#3a3050 0%,#221d2e 44%,#0d0b0f 100%);overflow:hidden">' +
+            '<div style="position:absolute;inset:0;background:linear-gradient(0deg,#0d0b0f 0%,transparent 46%)"></div>' +
+            '<div style="position:absolute;left:50%;top:56%;transform:translate(-50%,-50%);width:32px;height:66px;background:#100d15;border-radius:12px 12px 3px 3px"></div>' +
+            v.boxes.map(function (b) { return '<div style="' + b.box + '"><span style="' + b.tag + '">' + b.label + ' · ' + b.conf + '</span></div>'; }).join("") +
+            '<div style="position:absolute;top:14px;left:16px;display:flex;align-items:center;gap:8px;padding:5px 10px;background:rgba(13,11,9,0.7);border-radius:3px"><span style="width:6px;height:6px;border-radius:50%;background:var(--gold);animation:cypulse 1.8s infinite"></span><span style="font:400 10.5px var(--mono);color:#e9ddc4">gemini · scene understanding</span></div>' +
+            '<div style="position:absolute;left:0;right:0;bottom:0;padding:14px 16px;display:flex;align-items:center;gap:14px"><div style="width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.14);display:flex;align-items:center;justify-content:center"><svg width="13" height="13" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg></div><div style="flex:1;height:3px;background:rgba(255,255,255,0.18);position:relative"><div style="position:absolute;left:0;top:0;height:100%;width:34%;background:var(--gold)"></div><div style="position:absolute;left:34%;top:-3px;width:9px;height:9px;border-radius:50%;background:#fff"></div></div><span style="font:400 11.5px var(--mono);color:#cfc9bd">00:12 / 00:44</span></div>' +
+          '</div>' +
+          '<div style="padding:17px 18px;display:flex;gap:22px;align-items:center;flex-wrap:wrap">' +
+            '<div style="flex:1;min-width:230px"><div style="font:600 10px var(--ui);letter-spacing:1.4px;color:var(--ink3)">SCENE SUMMARY</div><div style="font-size:13px;color:var(--ink);margin-top:6px;line-height:1.55;text-wrap:pretty">A protagonist finishes a long day and looks over a futuristic city at dusk. Reflective, aspirational, premium and technology-forward — a natural, low-distraction context for lifestyle tech.</div></div>' +
+            '<div style="display:flex;gap:22px;flex:none"><div><div style="font:400 22px var(--mono);color:var(--green)">96</div><div style="font-size:10px;color:var(--ink3);margin-top:3px">Brand safety</div></div><div><div style="font-family:var(--ui);font-weight:700;letter-spacing:-0.02em;font-size:24px;color:var(--gold);line-height:1">High</div><div style="font-size:10px;color:var(--ink3);margin-top:3px">Narrative weight</div></div><div><div style="font-family:var(--ui);font-weight:700;letter-spacing:-0.02em;font-size:24px;color:var(--ink);line-height:1">Dusk</div><div style="font-size:10px;color:var(--ink3);margin-top:3px">Mood</div></div></div>' +
+          '</div>' +
+        '</div>' +
+        // detected objects panel
+        '<div style="background:var(--panel);padding:18px;display:flex;flex-direction:column;border-radius:4px">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><div style="font:600 10.5px var(--ui);color:var(--ink2);letter-spacing:1.4px">DETECTED OBJECTS</div><div style="font:400 11px var(--mono);color:var(--ink3)">6 found</div></div>' +
+          '<div style="display:flex;flex-direction:column;flex:1">' +
+            v.objects.map(function (o) { return '<div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid var(--line)"><span style="width:3px;height:24px;background:' + o.mark + ';flex:none"></span><div style="flex:1"><div style="font-size:12.5px;color:var(--ink);font-weight:500">' + o.label + '</div><div style="font-size:10.5px;color:var(--ink3)">' + o.cat + '</div></div><div style="font:400 12.5px var(--mono);color:var(--ink2)">' + o.conf + '</div></div>'; }).join("") +
+          '</div>' +
+          '<div style="margin-top:14px;padding:14px;background:var(--well);border-radius:3px"><div style="font:600 9.5px var(--ui);color:var(--gold);letter-spacing:1.2px">TOP RECOMMENDATION</div><div style="font-size:12.5px;color:var(--ink);margin-top:6px;line-height:1.45">Wireless headphones — highest naturalness and screen time. Detected ≠ sellable until contextually scored.</div></div>' +
+        '</div>' +
+      '</div>' +
+      // opportunity table
+      '<div style="background:var(--panel);overflow:hidden;border-radius:4px">' +
+        '<div style="display:flex;align-items:baseline;justify-content:space-between;padding:18px 22px 14px"><div style="font-family:var(--ui);font-weight:700;letter-spacing:-0.02em;font-size:20px;color:var(--ink)">Placement Opportunities</div><div style="font:400 11px var(--mono);color:var(--ink3)">scored from context, not raw detection</div></div>' +
+        '<div style="display:grid;grid-template-columns:1.6fr 1fr 0.7fr 0.9fr 0.9fr 0.8fr 0.9fr 0.9fr 34px;gap:0;padding:8px 22px;font:600 9.5px var(--ui);letter-spacing:1px;color:var(--ink3);text-transform:uppercase;border-bottom:1px solid var(--line)"><div>Opportunity</div><div>Timecode</div><div>Screen</div><div>Naturalness</div><div>Brand safe</div><div>Complexity</div><div>Rights</div><div style="text-align:right">Est. value</div><div></div></div>' +
+        v.opportunities.map(function (op) {
+          return '<div' + A("go:opportunity") + ' style="' + op.row + '"' + H(v.rowHover) + '>' +
+            '<div style="display:flex;flex-direction:column"><span style="font-size:13px;color:var(--ink);font-weight:600">' + op.cat + '</span><span style="font-size:11px;color:var(--ink3)">' + op.obj + '</span></div>' +
+            '<div style="font:400 12px var(--mono);color:var(--ink2);align-self:center">' + op.tc + '</div>' +
+            '<div style="font:400 12px var(--mono);color:var(--ink2);align-self:center">' + op.screen + '</div>' +
+            '<div style="align-self:center"><span style="' + op.natChip + '">' + op.nat + '</span></div>' +
+            '<div style="font:400 12.5px var(--mono);color:var(--ink);align-self:center">' + op.safe + '</div>' +
+            '<div style="font-size:12px;color:var(--ink2);align-self:center">' + op.cx + '</div>' +
+            '<div style="align-self:center"><span style="' + op.rightsChip + '">' + op.rights + '</span></div>' +
+            '<div style="font:700 13px var(--mono);color:var(--gold);text-align:right;align-self:center">' + op.val + '</div>' +
+            '<div style="align-self:center;text-align:right;color:var(--ink3)">›</div>' +
+          '</div>';
+        }).join("") +
+      '</div>' +
+    '</div>';
+  }
+
+  function opportunityView(v) {
+    return '<div style="animation:cyrise .3s ease">' +
+      '<div style="display:flex;align-items:center;gap:9px;font:400 11.5px var(--mono);color:var(--ink3);margin-bottom:18px"><span' + A("go:scene") + ' style="cursor:pointer;color:var(--ink2)"' + H(v.linkHover) + '>Scene Intelligence</span><span>/</span><span style="color:var(--gold)">Consumer Audio Opportunity</span></div>' +
+      '<div style="display:grid;grid-template-columns:1fr 344px;gap:20px">' +
+        '<div style="display:flex;flex-direction:column;gap:20px">' +
+          '<div style="background:var(--panel);padding:24px;border-radius:4px">' +
+            '<div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div style="font:400 11px var(--mono);color:var(--gold)">opp_horizons_rooftop_001</div><h2 style="font-family:var(--ui);font-weight:700;letter-spacing:-0.02em;font-size:28px;margin:10px 0 0;color:var(--ink);line-height:1.1">Wireless Headphones Placement</h2><div style="font:400 12px var(--mono);color:var(--ink2);margin-top:8px">HORIZONS · S2E3 · Rooftop Reflection · 00:12–00:38</div></div><div style="text-align:right;flex:none"><div style="font-family:var(--ui);font-weight:700;letter-spacing:-0.02em;font-size:38px;color:var(--gold);line-height:1">$185,000</div><div style="font-size:11px;color:var(--ink3);margin-top:3px">Estimated value ⓘ</div></div></div>' +
+            '<p style="font-size:13.5px;color:var(--ink);line-height:1.6;margin:20px 0 0;text-wrap:pretty">The character rests wireless headphones on the ledge as she reflects — a natural, product-supportive beat that does not touch plot, dialogue, or motivation. Stable framing, clean visibility, aspirational tone. A strong fit for premium consumer-audio and lifestyle-tech categories.</p>' +
+          '</div>' +
+          '<div style="background:var(--panel);border-radius:4px;padding:2px 24px;display:grid;grid-template-columns:repeat(3,1fr)">' +
+            v.oppMetrics.map(function (m) {
+              return '<div style="' + m.cell + '"><div style="font-size:11.5px;color:var(--ink2)">' + m.k + '</div><div style="' + m.valStyle + '">' + m.v + '</div>' +
+                (m.hasBar ? '<div style="height:3px;background:#1E1E22;margin-top:10px;overflow:hidden"><div style="' + m.bar + '"></div></div>' : '') +
+                (m.hasNote ? '<div style="font-size:10.5px;color:var(--ink3);margin-top:9px">' + m.note + '</div>' : '') +
+              '</div>';
+            }).join("") +
+          '</div>' +
+          '<div style="background:var(--panel);padding:22px;border-radius:4px"><div style="font:600 10.5px var(--ui);color:var(--ink2);letter-spacing:1.4px;margin-bottom:16px">CLICKHOUSE-DERIVED SIGNALS</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px"><div><div style="font-size:12px;color:var(--ink2)">Comparable demo deals</div><div style="font:400 16px var(--mono);color:var(--ink);margin-top:5px">14 in category</div></div><div><div style="font-size:12px;color:var(--ink2)">Median cleared fee</div><div style="font:400 16px var(--mono);color:var(--ink);margin-top:5px">$171,500</div></div><div><div style="font-size:12px;color:var(--ink2)">Category demand</div><div style="font:400 16px var(--mono);color:var(--green);margin-top:5px">High · rising</div></div></div></div>' +
+        '</div>' +
+        // right rail
+        '<div style="display:flex;flex-direction:column;gap:18px">' +
+          '<div style="background:var(--panel);padding:20px;border-radius:4px"><div style="font:600 10.5px var(--ui);color:var(--ink2);letter-spacing:1.4px;margin-bottom:14px">COMPATIBLE CATEGORIES</div><div style="display:flex;flex-wrap:wrap;gap:8px"><span style="padding:5px 11px;background:rgba(99,102,241,0.14);color:var(--gold);font-size:12px;font-weight:600;border-radius:3px">Consumer audio</span><span style="padding:5px 11px;background:var(--well);color:var(--ink2);font-size:12px;border-radius:3px">Lifestyle tech</span><span style="padding:5px 11px;background:var(--well);color:var(--ink2);font-size:12px;border-radius:3px">Wearables</span><span style="padding:5px 11px;background:var(--well);color:var(--ink2);font-size:12px;border-radius:3px">Premium design</span></div></div>' +
+          '<div style="background:var(--panel);padding:20px;border-radius:4px"><div style="font:600 10.5px var(--ui);color:var(--ink2);letter-spacing:1.4px;margin-bottom:14px">TERRITORY AVAILABILITY</div><div style="display:flex;flex-direction:column;gap:11px"><div style="display:flex;justify-content:space-between;font-size:12.5px"><span style="color:var(--ink)">United States</span><span style="color:var(--green);font-weight:600">Cleared</span></div><div style="display:flex;justify-content:space-between;font-size:12.5px"><span style="color:var(--ink)">Canada</span><span style="color:var(--green);font-weight:600">Cleared</span></div><div style="display:flex;justify-content:space-between;font-size:12.5px"><span style="color:var(--ink)">United Kingdom</span><span style="color:var(--green);font-weight:600">Cleared</span></div><div style="display:flex;justify-content:space-between;font-size:12.5px"><span style="color:var(--ink)">Germany</span><span style="color:var(--red);font-weight:600">Restricted</span></div></div></div>' +
+          '<div style="background:var(--panel);padding:20px;border-radius:4px"><div style="font-size:12.5px;color:var(--ink);line-height:1.55">Ready to see which campaigns fit? The Market Agent will query live inventory in ClickHouse.</div><button' + A("go:marketplace") + ' style="margin-top:16px;width:100%;padding:12px;border:none;border-radius:3px;background:var(--gold);color:#FFFFFF;font:600 13.5px var(--ui);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px"' + H(v.ctaHover) + '><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>Find Brand Matches</button></div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function marketplaceView(v) {
+    return '<div style="animation:cyrise .3s ease">' +
+      '<div style="display:flex;align-items:center;gap:9px;font:400 11.5px var(--mono);color:var(--ink3);margin-bottom:16px"><span' + A("go:scene") + ' style="cursor:pointer;color:var(--ink2)"' + H(v.linkHover) + '>Opportunity</span><span>/</span><span style="color:var(--gold)">Brand Matches</span></div>' +
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;padding:11px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="m4 12 5 5L20 6"/></svg><span style="font:400 12px var(--mono);color:var(--ink2)"><span style="color:var(--green)">market-agent</span> queried clickhouse-mcp · <span style="color:var(--ink)">27 campaigns scanned</span> · 6 ranked · 45ms</span></div>' +
+      '<div style="display:grid;grid-template-columns:1fr 336px;gap:20px">' +
+        '<div style="display:flex;flex-direction:column;gap:14px">' +
+          // top match
+          '<div style="background:var(--panel);border-radius:4px;padding:24px;position:relative;border-left:3px solid var(--gold)">' +
+            '<div style="position:absolute;top:24px;right:24px;font:600 9.5px var(--ui);letter-spacing:1.4px;color:var(--gold)">TOP MATCH</div>' +
+            '<div style="display:flex;gap:18px;align-items:flex-start"><div style="width:52px;height:52px;flex:none;border-radius:3px;background:#1E1E22;display:flex;align-items:center;justify-content:center;font-family:var(--ui);font-weight:700;letter-spacing:-0.02em;font-size:26px;color:var(--gold)">A</div><div style="flex:1"><div style="font-family:var(--ui);font-weight:700;letter-spacing:-0.02em;font-size:24px;color:var(--ink);line-height:1.1">Aurelius Systems</div><div style="font-size:12.5px;color:var(--ink2);margin-top:4px">Aurelius One Wireless Headphones · Campaign “Focus Without Limits”</div></div><div style="text-align:center;flex:none;margin-right:56px"><div style="position:relative;width:70px;height:70px"><svg width="70" height="70" viewBox="0 0 70 70" style="transform:rotate(-90deg)"><circle cx="35" cy="35" r="30" fill="none" stroke="#1E1E22" stroke-width="4"/><circle cx="35" cy="35" r="30" fill="none" stroke="var(--gold)" stroke-width="4" stroke-linecap="butt" stroke-dasharray="188" stroke-dashoffset="15"/></svg><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><span style="font:400 22px var(--mono);color:var(--ink)">92</span></div></div><div style="font-size:10px;color:var(--ink3);margin-top:2px">match</div></div></div>' +
+            '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:22px;padding-top:20px;border-top:1px solid var(--line)"><div><div style="font-size:10px;color:var(--ink3)">Budget</div><div style="font:400 13px var(--mono);color:var(--ink);margin-top:4px">$150K–$250K</div></div><div><div style="font-size:10px;color:var(--ink3)">Visibility</div><div style="font:400 13px var(--mono);color:var(--ink);margin-top:4px">15–30s</div></div><div><div style="font-size:10px;color:var(--ink3)">Territories</div><div style="font:400 13px var(--mono);color:var(--ink);margin-top:4px">NA + EU</div></div><div><div style="font-size:10px;color:var(--ink3)">Exclusivity</div><div style="font:400 13px var(--mono);color:var(--ink);margin-top:4px">Category</div></div></div>' +
+            '<button' + A("go:deal") + ' style="margin-top:22px;padding:11px 20px;border:none;border-radius:3px;background:var(--gold);color:#FFFFFF;font:600 13.5px var(--ui);cursor:pointer;display:inline-flex;align-items:center;gap:8px"' + H(v.ctaHover) + '>Open proposal <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>' +
+          '</div>' +
+          // other matches
+          v.matches.map(function (m) {
+            return '<div style="' + m.card + '"><div style="width:40px;height:40px;flex:none;border-radius:3px;background:#19191D;display:flex;align-items:center;justify-content:center;font-family:var(--ui);font-weight:700;letter-spacing:-0.02em;font-size:18px;color:var(--ink3)">' + m.initial + '</div><div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:9px"><span style="font-size:14.5px;font-weight:600;color:var(--ink)">' + m.brand + '</span><span style="' + m.statusChip + '">' + m.statusLabel + '</span></div><div style="font-size:12px;color:var(--ink2);margin-top:2px">' + m.line + '</div></div><div style="flex:none;text-align:right"><div style="' + m.scoreStyle + '">' + m.score + '</div><div style="font-size:10px;color:var(--ink3)">match</div></div></div>';
+          }).join("") +
+        '</div>' +
+        // why this match
+        '<div style="background:var(--panel);padding:22px;border-radius:4px;align-self:flex-start">' +
+          '<div style="font-family:var(--ui);font-weight:700;letter-spacing:-0.02em;font-size:20px;color:var(--ink)">Why this match?</div>' +
+          '<div style="font-size:12px;color:var(--ink2);margin-top:4px;margin-bottom:18px">Composite of Gemini semantic fit + deterministic rules.</div>' +
+          '<div style="display:flex;flex-direction:column;gap:14px">' +
+            v.breakdown.map(function (d) { return '<div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px"><span style="color:var(--ink)">' + d.k + '</span><span style="font:400 12px var(--mono);color:var(--ink2)">' + d.v + '</span></div><div style="height:3px;background:#1E1E22;overflow:hidden"><div style="' + d.bar + '"></div></div></div>'; }).join("") +
+          '</div>' +
+          '<div style="margin-top:20px;padding-top:18px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:13px;color:var(--ink2)">Final composite</span><span style="font-family:var(--ui);font-weight:700;letter-spacing:-0.02em;font-size:34px;color:var(--gold);line-height:1">92</span></div>' +
+          '<div style="margin-top:16px;padding:13px;background:var(--well);border-radius:3px;font-size:12px;color:var(--ink2);line-height:1.5">Hard rules (territory, category, exclusivity) can block a campaign regardless of semantic score.</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function dealView(v) {
+    return '<div style="animation:cyrise .3s ease">' +
+      '<div style="display:flex;align-items:center;gap:9px;font:400 11.5px var(--mono);color:var(--ink3);margin-bottom:16px"><span' + A("go:marketplace") + ' style="cursor:pointer;color:var(--ink2)"' + H(v.linkHover) + '>Marketplace</span><span>/</span><span style="color:var(--gold)">Proposal · Aurelius Systems</span></div>' +
+      (v.approved ? '<div style="display:flex;align-items:center;gap:12px;padding:14px 18px;background:var(--panel);border-left:3px solid var(--green);margin-bottom:18px;animation:cyrise .3s ease;border-radius:4px"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg><div style="flex:1"><div style="font-size:14px;font-weight:600;color:var(--green)">Placement approved</div><div style="font:400 11.5px var(--mono);color:var(--ink2)">QUALIFIED → APPROVED · audit event recorded · analytics updated</div></div><button' + A("go:analytics") + ' style="padding:9px 15px;border:1px solid var(--line2);border-radius:3px;background:transparent;color:var(--green);font:600 12.5px var(--ui);cursor:pointer"' + H(v.ghostHover) + '>View in Analytics →</button></div>' : '') +
+      '<div style="display:grid;grid-template-columns:1fr 336px;gap:20px">' +
+        '<div style="display:flex;flex-direction:column;gap:16px">' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">' +
+            '<div style="background:var(--panel);padding:20px;border-radius:4px"><div style="font:600 10px var(--ui);letter-spacing:1.4px;color:var(--gold)">BRAND BRIEF</div><div style="font-family:var(--ui);font-weight:700;letter-spacing:-0.02em;font-size:19px;color:var(--ink);margin-top:8px">Aurelius Systems</div><div style="font-size:12.5px;color:var(--ink2);margin-top:2px">“Focus Without Limits”</div><div style="font-size:12.5px;color:var(--ink);line-height:1.55;margin-top:13px;text-wrap:pretty">Target 18–44, premium tech &amp; design audience. Prefers aspirational, urban, focused, modern context. Excludes violence, intoxication, ridicule, unsafe use.</div></div>' +
+            '<div style="background:var(--panel);padding:20px;border-radius:4px"><div style="font:600 10px var(--ui);letter-spacing:1.4px;color:var(--gold)">PRODUCER SCENE</div><div style="font-family:var(--ui);font-weight:700;letter-spacing:-0.02em;font-size:19px;color:var(--ink);margin-top:8px">HORIZONS · S2E3</div><div style="font-size:12.5px;color:var(--ink2);margin-top:2px">Rooftop Reflection · 00:12–00:38</div><div style="font-size:12.5px;color:var(--ink);line-height:1.55;margin-top:13px;text-wrap:pretty">Aspirational dusk cityscape, reflective mood, wireless headphones already in frame. 26s screen time, high camera stability, brand safety 96.</div></div>' +
+          '</div>' +
+          '<div style="background:var(--panel);padding:22px;border-radius:4px">' +
+            '<div style="font-family:var(--ui);font-weight:700;letter-spacing:-0.02em;font-size:20px;color:var(--ink);margin-bottom:18px">Proposed terms</div>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 32px">' +
+              '<div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line)"><span style="font-size:12.5px;color:var(--ink2)">Placement fee</span><span style="font:700 14px var(--mono);color:var(--gold)">$185,000</span></div>' +
+              '<div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line)"><span style="font-size:12.5px;color:var(--ink2)">Payment model</span><span style="font-size:13px;color:var(--ink);font-weight:600">Flat fee</span></div>' +
+              '<div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line)"><span style="font-size:12.5px;color:var(--ink2)">Usage window</span><span style="font-size:13px;color:var(--ink);font-weight:600">12 months</span></div>' +
+              '<div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line)"><span style="font-size:12.5px;color:var(--ink2)">Territory</span><span style="font-size:13px;color:var(--ink);font-weight:600">NA + selected EU</span></div>' +
+              '<div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line)"><span style="font-size:12.5px;color:var(--ink2)">Exclusivity</span><span style="font-size:13px;color:var(--ink);font-weight:600">Consumer audio</span></div>' +
+              '<div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line)"><span style="font-size:12.5px;color:var(--ink2)">Deliverables</span><span style="font-size:13px;color:var(--ink);font-weight:600">Episode + 2 cutdowns</span></div>' +
+            '</div>' +
+            '<div style="margin-top:16px;padding:11px 13px;background:var(--well);border-radius:3px;font-size:11.5px;color:var(--ink2)">ⓘ Estimated value is a demo planning signal, not a guaranteed transaction price. Producer creative approval always required.</div>' +
+          '</div>' +
+          '<div style="display:flex;gap:12px;align-items:center">' +
+            '<button' + A("approve") + ' style="' + v.approveBtn + '"' + (v.approved ? '' : H(v.ctaHover)) + '><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 4 4L19 6"/></svg>' + v.approveLabel + '</button>' +
+            '<button style="padding:12px 18px;border:1px solid var(--line2);border-radius:3px;background:transparent;color:var(--ink);font:600 13.5px var(--ui);cursor:pointer"' + H(v.ghostHover) + '>Counter</button>' +
+            '<button style="padding:12px 18px;border:1px solid var(--line2);border-radius:3px;background:transparent;color:var(--ink);font:600 13.5px var(--ui);cursor:pointer"' + H(v.ghostHover) + '>Request Changes</button>' +
+            '<button style="padding:12px 18px;border:1px solid rgba(197,107,91,0.3);border-radius:3px;background:transparent;color:var(--red);font:600 13.5px var(--ui);cursor:pointer;margin-left:auto"' + H(v.ghostHover) + '>Reject</button>' +
+          '</div>' +
+        '</div>' +
+        // right rail
+        '<div style="display:flex;flex-direction:column;gap:18px">' +
+          '<div style="background:var(--panel);padding:20px;border-radius:4px"><div style="font:600 10.5px var(--ui);color:var(--ink2);letter-spacing:1.4px;margin-bottom:8px">GUARDRAILS</div>' +
+            v.guardrails.map(function (g) { return '<div style="display:flex;align-items:center;gap:11px;padding:11px 0;border-top:1px solid var(--line)"><span style="' + g.glyph + '">' + g.mark + '</span><div style="flex:1"><div style="font-size:12.5px;color:var(--ink);font-weight:600">' + g.name + '</div><div style="font-size:11px;color:var(--ink3)">' + g.detail + '</div></div><span style="' + g.tag + '">' + g.status + '</span></div>'; }).join("") +
+          '</div>' +
+          '<div style="background:var(--panel);padding:20px;border-radius:4px"><div style="font:600 10.5px var(--ui);color:var(--ink2);letter-spacing:1.4px;margin-bottom:14px">AUDIT TRAIL</div><div style="display:flex;flex-direction:column">' +
+            v.audit.map(function (a) { return '<div style="display:flex;gap:12px;padding-bottom:15px"><div style="display:flex;flex-direction:column;align-items:center"><span style="' + a.dot + '"></span><span style="width:1px;flex:1;background:var(--line2);margin-top:3px"></span></div><div style="flex:1;margin-top:-3px"><div style="font-size:12.5px;color:var(--ink)">' + a.text + '</div><div style="font:400 10px var(--mono);color:var(--ink3);margin-top:3px">' + a.who + ' · ' + a.time + '</div></div></div>'; }).join("") +
+          '</div></div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function agentsView(v) {
+    return '<div style="animation:cyrise .3s ease">' +
+      '<div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:20px"><div><h1 style="font-family:var(--ui);font-weight:700;letter-spacing:-0.02em;font-size:30px;margin:0;color:var(--ink);line-height:1.05">Agent Orchestration</h1><p style="margin:7px 0 0;color:var(--ink2);font-size:13px">Six agents. One deterministic workflow. Every tool call observable.</p></div><div style="display:flex;gap:18px"><div style="display:flex;align-items:center;gap:7px"><span style="width:6px;height:6px;border-radius:50%;background:var(--green)"></span><span style="font:400 11.5px var(--mono);color:var(--ink2)">gemini</span></div><div style="display:flex;align-items:center;gap:7px"><span style="width:6px;height:6px;border-radius:50%;background:var(--green);animation:cypulse 2s infinite"></span><span style="font:400 11.5px var(--mono);color:var(--green)">clickhouse-mcp</span></div><div style="display:flex;align-items:center;gap:7px"><span style="width:6px;height:6px;border-radius:50%;background:var(--green)"></span><span style="font:400 11.5px var(--mono);color:var(--ink2)">cloud-storage</span></div><div style="display:flex;align-items:center;gap:7px"><span style="width:6px;height:6px;border-radius:50%;background:var(--ink3)"></span><span style="font:400 11.5px var(--mono);color:var(--ink3)">parallel · off</span></div></div></div>' +
+      // workflow strip
+      '<div style="display:flex;align-items:center;gap:8px;padding:16px 20px;background:var(--panel);border-radius:4px;margin-bottom:16px">' +
+        v.pipeline.map(function (p) { return '<div style="' + p.step + '">' + p.label + '</div>' + (p.arrow ? '<span style="color:var(--ink3);font:400 14px var(--mono)">→</span>' : ''); }).join("") +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 344px;gap:20px">' +
+        // agent cards
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">' +
+          v.agents.map(function (ag) {
+            return '<div style="' + ag.card + '"><div style="display:flex;align-items:center;justify-content:space-between"><div style="display:flex;align-items:center;gap:9px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="' + ag.iconColor + '" stroke-width="1.8"><circle cx="12" cy="12" r="3.2"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg><span style="font-family:var(--ui);letter-spacing:-0.02em;font-size:17px;font-weight:400;color:var(--ink)">' + ag.name + '</span></div><span style="' + ag.stateChip + '">' + ag.state + '</span></div>' +
+              '<div style="font-size:12px;color:var(--ink2);margin-top:9px">' + ag.role + '</div>' +
+              '<div style="display:flex;align-items:center;gap:8px;margin-top:13px;padding:9px 11px;background:var(--well);border-radius:3px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2"><path d="M8 6 3 12l5 6M16 6l5 6-5 6"/></svg><span style="font:400 11px var(--mono);color:var(--ink2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + ag.tool + '</span><span style="font:400 11px var(--mono);color:var(--ink3)">' + ag.lat + '</span></div>' +
+            '</div>';
+          }).join("") +
+        '</div>' +
+        // MCP live event
+        '<div style="background:var(--panel);border-left:3px solid var(--green);padding:22px;align-self:flex-start;border-radius:4px">' +
+          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px"><span style="width:7px;height:7px;border-radius:50%;background:var(--green);animation:cypulse 1.6s infinite"></span><span style="font-family:var(--ui);font-weight:700;letter-spacing:-0.02em;font-size:18px;color:var(--green)">Runtime event</span></div>' +
+          '<div style="font:400 11px var(--mono);color:var(--ink2);margin-bottom:16px">market-agent → mcp-clickhouse → query</div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px"><div style="padding:12px;background:var(--well);border-radius:3px"><div style="font-size:10.5px;color:var(--ink3)">Rows returned</div><div style="font:700 20px var(--mono);color:var(--ink)">27</div></div><div style="padding:12px;background:var(--well);border-radius:3px"><div style="font-size:10.5px;color:var(--ink3)">Latency</div><div style="font:700 20px var(--mono);color:var(--green)">45ms</div></div></div>' +
+          '<div style="font:600 9.5px var(--ui);letter-spacing:1.2px;color:var(--ink3);margin-bottom:9px">SANITIZED TOOL TRACE</div>' +
+          '<div style="background:var(--well);border-radius:3px;padding:13px;font:400 11px var(--mono);color:#8db99a;line-height:1.7;overflow-x:auto">' +
+            v.trace.map(function (t) { return '<div style="' + t.style + '">' + t.line + '</div>'; }).join("") +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function analyticsView(v) {
+    return '<div style="animation:cyrise .3s ease">' +
+      '<div style="margin-bottom:24px"><h1 style="font-family:var(--ui);font-weight:700;letter-spacing:-0.02em;font-size:30px;margin:0;color:var(--ink);line-height:1.05">Analytics &amp; Revenue</h1><p style="margin:7px 0 0;color:var(--ink2);font-size:13px">Outcomes read from persisted event data. <span style="color:var(--ink3)">Demo dataset.</span></p></div>' +
+      '<div style="display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);margin-bottom:22px">' +
+        v.anStats.map(function (s) { return '<div style="' + s.cell + '"><div style="font-size:12px;color:var(--ink3)">' + s.label + '</div><div style="' + s.valStyle + '">' + s.value + '</div></div>'; }).join("") +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:1.5fr 1fr;gap:18px;margin-bottom:18px">' +
+        '<div style="background:var(--panel);padding:22px;border-radius:4px"><div style="font-family:var(--ui);font-weight:700;letter-spacing:-0.02em;font-size:19px;color:var(--ink)">Approved placement value over time</div><div style="font:400 11px var(--mono);color:var(--ink3);margin:4px 0 18px">USD · trailing 6 months · demo</div>' +
+          '<svg viewBox="0 0 560 200" style="width:100%;height:auto"><defs><linearGradient id="cyfill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6366F1" stop-opacity="0.18"/><stop offset="1" stop-color="#6366F1" stop-opacity="0"/></linearGradient></defs><line x1="40" y1="20" x2="40" y2="170" stroke="#1E1E22"/><line x1="40" y1="170" x2="540" y2="170" stroke="#1E1E22"/><path d="M40 150 L140 128 L240 132 L340 92 L440 70 L540 40 L540 170 L40 170 Z" fill="url(#cyfill)"/><path d="M40 150 L140 128 L240 132 L340 92 L440 70 L540 40" fill="none" stroke="#6366F1" stroke-width="2"/><circle cx="540" cy="40" r="3.5" fill="#818CF8"/><text x="40" y="188" fill="#65656E" font-size="10" font-family="Space Mono">Mar</text><text x="140" y="188" fill="#65656E" font-size="10" font-family="Space Mono">Apr</text><text x="240" y="188" fill="#65656E" font-size="10" font-family="Space Mono">May</text><text x="340" y="188" fill="#65656E" font-size="10" font-family="Space Mono">Jun</text><text x="440" y="188" fill="#65656E" font-size="10" font-family="Space Mono">Jul</text><text x="520" y="188" fill="#65656E" font-size="10" font-family="Space Mono">Aug</text></svg>' +
+        '</div>' +
+        '<div style="background:var(--panel);padding:22px;border-radius:4px"><div style="font-family:var(--ui);font-weight:700;letter-spacing:-0.02em;font-size:19px;color:var(--ink);margin-bottom:18px">Revenue by category</div><div style="display:flex;align-items:center;gap:22px">' +
+          '<svg width="120" height="120" viewBox="0 0 42 42"><circle cx="21" cy="21" r="15.9" fill="none" stroke="#1E1E22" stroke-width="6"/><circle cx="21" cy="21" r="15.9" fill="none" stroke="#6366F1" stroke-width="6" stroke-dasharray="34 66" stroke-dashoffset="25" transform="rotate(-90 21 21)"/><circle cx="21" cy="21" r="15.9" fill="none" stroke="#4F46E5" stroke-width="6" stroke-dasharray="28 72" stroke-dashoffset="-9" transform="rotate(-90 21 21)"/><circle cx="21" cy="21" r="15.9" fill="none" stroke="#4338CA" stroke-width="6" stroke-dasharray="22 78" stroke-dashoffset="-37" transform="rotate(-90 21 21)"/><circle cx="21" cy="21" r="15.9" fill="none" stroke="#312E81" stroke-width="6" stroke-dasharray="16 84" stroke-dashoffset="-59" transform="rotate(-90 21 21)"/></svg>' +
+          '<div style="flex:1;display:flex;flex-direction:column;gap:10px"><div style="display:flex;align-items:center;gap:9px;font-size:12px"><span style="width:8px;height:8px;background:#6366F1"></span><span style="color:var(--ink);flex:1">Consumer audio</span><span style="font:400 12px var(--mono);color:var(--ink2)">34%</span></div><div style="display:flex;align-items:center;gap:9px;font-size:12px"><span style="width:8px;height:8px;background:#4F46E5"></span><span style="color:var(--ink);flex:1">Mobile / devices</span><span style="font:400 12px var(--mono);color:var(--ink2)">28%</span></div><div style="display:flex;align-items:center;gap:9px;font-size:12px"><span style="width:8px;height:8px;background:#4338CA"></span><span style="color:var(--ink);flex:1">Smart home</span><span style="font:400 12px var(--mono);color:var(--ink2)">22%</span></div><div style="display:flex;align-items:center;gap:9px;font-size:12px"><span style="width:8px;height:8px;background:#312E81"></span><span style="color:var(--ink);flex:1">Beverage / other</span><span style="font:400 12px var(--mono);color:var(--ink2)">16%</span></div></div>' +
+        '</div></div>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">' +
+        '<div style="background:var(--panel);padding:22px;border-radius:4px"><div style="font-family:var(--ui);font-weight:700;letter-spacing:-0.02em;font-size:19px;color:var(--ink);margin-bottom:18px">Revenue by content type</div><div style="display:flex;flex-direction:column;gap:15px">' +
+          v.contentRev.map(function (r) { return '<div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:7px"><span style="color:var(--ink)">' + r.k + '</span><span style="font:400 12px var(--mono);color:var(--ink2)">' + r.v + '</span></div><div style="height:4px;background:#1E1E22"><div style="' + r.bar + '"></div></div></div>'; }).join("") +
+        '</div></div>' +
+        '<div style="background:var(--panel);padding:22px;border-radius:4px"><div style="font-family:var(--ui);font-weight:700;letter-spacing:-0.02em;font-size:19px;color:var(--ink);margin-bottom:8px">Top performing scenes</div>' +
+          v.topScenes.map(function (t) { return '<div style="display:flex;align-items:center;gap:13px;padding:11px 0;border-top:1px solid var(--line)"><div style="width:44px;height:28px;background:' + t.thumb + ';flex:none"></div><div style="flex:1"><div style="font-size:13px;color:var(--ink);font-weight:500">' + t.name + '</div><div style="font-size:11px;color:var(--ink3)">' + t.show + '</div></div><div style="' + t.valStyle + '">' + t.val + '</div></div>'; }).join("") +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function stubView(v) {
+    return '<div style="animation:cyrise .3s ease;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;min-height:56vh;max-width:440px"><div style="font:400 12px var(--mono);color:var(--ink3);letter-spacing:1px">FULL BUILD SURFACE</div><h2 style="font-family:var(--ui);font-weight:700;letter-spacing:-0.02em;font-size:32px;margin:12px 0 0;color:var(--ink);line-height:1.05">' + v.stubTitle + '</h2><p style="margin:12px 0 0;color:var(--ink2);font-size:14px;line-height:1.55;text-wrap:pretty">This surface is part of the full CineYield build. For this prototype, the demo path runs through Library → Scene Intelligence → Marketplace → Deal → Analytics.</p><button' + A("go:library") + ' style="margin-top:22px;padding:11px 20px;border:1px solid var(--line2);border-radius:3px;background:transparent;color:var(--gold);font:600 13px var(--ui);cursor:pointer"' + H(v.ghostHover) + '>← Back to Studio Library</button></div>';
+  }
+
+  function overlay(v) {
+    if (!v.analyzing) return "";
+    return '<div style="position:fixed;inset:0;background:rgba(10,8,6,0.78);z-index:50;display:flex;align-items:center;justify-content:center">' +
+      '<div style="width:452px;background:var(--panel2);padding:28px;border-radius:4px;box-shadow:0 24px 70px rgba(0,0,0,0.6)">' +
+        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:4px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.8" style="flex:none"><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/><circle cx="12" cy="12" r="3.5"/></svg><div><div style="font-family:var(--ui);font-weight:700;letter-spacing:-0.02em;font-size:20px;color:var(--ink);line-height:1.1">Analyzing cut</div><div style="font:400 11px var(--mono);color:var(--ink2)">HORIZONS · Rooftop Reflection.mp4</div></div></div>' +
+        '<div style="height:4px;background:#1E1E22;overflow:hidden;margin:20px 0 6px"><div style="' + v.progressStyle + '"></div></div>' +
+        '<div style="font:400 11px var(--mono);color:var(--ink3);text-align:right;margin-bottom:18px">' + v.progressPct + '%</div>' +
+        '<div style="display:flex;flex-direction:column;gap:12px">' +
+          v.steps.map(function (s) { return '<div style="display:flex;align-items:center;gap:12px"><span style="' + s.icon + '">' + (s.done ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.4"><path d="m4 12 5 5L20 6"/></svg>' : '') + '</span><span style="' + s.text + '">' + s.label + '</span></div>'; }).join("") +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function content(v) {
+    if (v.isLibrary) return libraryView(v);
+    if (v.isScene) return sceneView(v);
+    if (v.isOpportunity) return opportunityView(v);
+    if (v.isMarketplace) return marketplaceView(v);
+    if (v.isDeal) return dealView(v);
+    if (v.isAgents) return agentsView(v);
+    if (v.isAnalytics) return analyticsView(v);
+    if (v.isStub) return stubView(v);
+    return libraryView(v);
+  }
+
+  function shell(v) {
+    return '<div style="display:flex;flex-direction:column;height:100vh;width:100%;background:var(--canvas);color:var(--ink);font-family:var(--ui);overflow:hidden">' +
+      // announcement
+      '<div style="flex:none;height:40px;display:flex;align-items:center;justify-content:center;gap:9px;background:linear-gradient(90deg,#4f46e5,#7c3aed,#4f46e5);color:#ECECFF;font:500 13px var(--ui);letter-spacing:0.01em"><span style="opacity:.85">✨</span>Introducing CineYield — turn every scene into sellable inventory<span style="opacity:.8">›</span></div>' +
+      // top nav
+      '<header style="flex:none;height:60px;display:flex;align-items:center;justify-content:space-between;gap:20px;padding:0 28px;border-bottom:1px solid var(--line);background:rgba(9,9,11,0.82);backdrop-filter:blur(10px);position:relative;z-index:20">' +
+        '<div style="display:flex;align-items:center;gap:32px;min-width:0">' +
+          '<div' + A("go:library") + ' style="display:flex;align-items:center;gap:9px;cursor:pointer"><svg viewBox="0 0 30 34" width="22" height="26"><path d="M15 1 L28 8.5 V25.5 L15 33 L2 25.5 V8.5 Z" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linejoin="round"/><path d="M20 12.5 a6.5 6.5 0 1 0 0 9" fill="none" stroke="var(--gold)" stroke-width="2.4" stroke-linecap="round"/></svg><span style="font:700 18px var(--ui);letter-spacing:-0.02em;color:var(--ink)">CineYield</span></div>' +
+          '<nav style="display:flex;align-items:center;gap:22px;height:60px">' +
+            v.topnav.map(function (t) { return '<button' + A("go:" + t.r) + ' style="' + t.style + '"' + H(v.topHover) + '>' + t.label + '</button>'; }).join("") +
+          '</nav>' +
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:14px;flex:none">' +
+          '<div style="display:none;align-items:center;gap:8px;height:34px;padding:0 10px 0 12px;border:1px solid var(--line2);border-radius:8px;background:var(--panel);color:var(--ink3);font-size:13px;width:200px" data-search><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg><span style="flex:1;white-space:nowrap;overflow:hidden">Search catalog…</span><span style="font:500 11px var(--mono);padding:1px 5px;border:1px solid var(--line2);border-radius:4px">⌘K</span></div>' +
+          '<div style="display:flex;align-items:center;gap:7px"><span style="width:5px;height:5px;border-radius:50%;background:var(--green);animation:cypulse 2.4s infinite"></span><span style="font:400 11px var(--mono);color:var(--ink3)">live</span></div>' +
+          '<button' + A("analyze") + ' style="display:flex;align-items:center;gap:7px;height:36px;padding:0 16px;border-radius:8px;background:var(--gold);color:#fff;font:600 13px var(--ui);cursor:pointer"' + H(v.ctaHover) + '><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>Analyze a Cut</button>' +
+        '</div>' +
+      '</header>' +
+      // content
+      '<div id="cy-content" style="flex:1;overflow-y:auto"><div style="max-width:1200px;margin:0 auto;padding:28px 40px 88px;width:100%">' + content(v) + '</div></div>' +
+      overlay(v) +
+    '</div>';
+  }
+
+  // ------------------------------------------------------------------ render + wiring
+  var appEl;
+  function render() {
+    var v = computeVals();
+    appEl.innerHTML = shell(v);
+    // wire hover states
+    appEl.querySelectorAll("[data-hover]").forEach(function (el) {
+      var base = el.getAttribute("style");
+      var hv;
+      try { hv = JSON.parse(el.getAttribute("data-hover")); } catch (e) { return; }
+      el.addEventListener("mouseenter", function () { for (var k in hv) el.style[k] = hv[k]; });
+      el.addEventListener("mouseleave", function () { el.setAttribute("style", base); });
+    });
+  }
+
+  function onClickAction(e) {
+    var el = e.target.closest("[data-action]");
+    if (!el || !appEl.contains(el)) return;
+    var act = el.getAttribute("data-action");
+    if (act === "analyze") { analyze(); }
+    else if (act === "approve") { approve(); }
+    else if (act.indexOf("go:") === 0) { go(act.slice(3)); }
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    appEl = document.getElementById("app");
+    appEl.addEventListener("click", onClickAction);
+    render();
+  });
+})();
+</script>
+</body>
+</html>

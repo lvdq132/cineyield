@@ -1,0 +1,16 @@
+# `gcloud run deploy --source` uploads this directory to Cloud Build, and it
+# reads .gcloudignore -- NOT .dockerignore. Without this file gcloud derives
+# its exclusions from .gitignore, and node_modules/ is git-tracked in this
+# repo, so 474MB of dependencies would be uploaded on every deploy.
+.git/
+.gitignore
+node_modules/
+.next/
+out/
+.env
+.env.local
+.env*.local
+test-results/
+playwright-report/
+e2e/
+*.tsbuildinfo

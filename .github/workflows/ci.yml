@@ -1,0 +1,78 @@
+name: CI
+
+# Runs everything that needs NO cloud credentials: backend lint/typecheck/
+# unit tests and frontend typecheck/lint/build.
+#
+# What this workflow deliberately does NOT do: ClickHouse, Gemini, or
+# mcp-clickhouse integration checks. Those require real credentials this
+# runner does not have, and faking them would make this workflow lie about
+# coverage. The actual contest gate for those integrations is a separate,
+# credentialed command — run manually or from an environment with secrets:
+#
+#   bash scripts/smoke-contest.sh <backend-url>
+#
+# (see apps/agent-api/Makefile's mcp-health / test-contest targets for the
+# credentialed, non-HTTP equivalents). A green run of this workflow is
+# necessary but not sufficient — it says nothing about whether MCP,
+# ClickHouse, or Gemini actually work.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    name: Backend (ruff, mypy, pytest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/agent-api
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: apps/agent-api/requirements-dev.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Lint (ruff)
+        run: ruff check cineyield/ tests/ main.py
+
+      - name: Typecheck (mypy)
+        run: mypy cineyield/ main.py
+
+      - name: Unit tests (no cloud credentials required)
+        run: pytest tests/ -v -m "not integration and not contest"
+
+  frontend:
+    name: Frontend (typecheck, lint, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build

@@ -1,0 +1,28 @@
+# Explicit Docker build so NEXT_PUBLIC_API_URL actually reaches the Dockerfile ARG.
+#
+# `gcloud run deploy --source` does NOT pass --set-build-env-vars through as a
+# Docker --build-arg. The Dockerfile's ARG therefore kept its placeholder
+# default, and because Next.js inlines every NEXT_PUBLIC_* value at BUILD time
+# -- in server components too, not just client ones -- the whole deployed app
+# pointed at a host that does not exist. Every fetch failed and every page
+# silently fell back to fixtures while looking exactly like live data.
+#
+# Verified by scanning the deployed client chunks, which contained the literal
+# string "cineyield-api-placeholder".
+substitutions:
+  _API_URL: ""
+  _IMAGE: ""
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --build-arg
+      - NEXT_PUBLIC_API_URL=${_API_URL}
+      - -t
+      - ${_IMAGE}
+      - .
+  - name: gcr.io/cloud-builders/docker
+    args: [push, "${_IMAGE}"]
+images: ["${_IMAGE}"]
+options:
+  logging: CLOUD_LOGGING_ONLY

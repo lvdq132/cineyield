@@ -1,0 +1,15 @@
+# See the note in apps/web/.gcloudignore -- gcloud reads this file, not
+# .dockerignore, when uploading source to Cloud Build.
+.git/
+.gitignore
+.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.env
+tests/fixtures/*.mp4

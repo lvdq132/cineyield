@@ -1,0 +1,148 @@
+@import "tailwindcss";
+
+@theme {
+  --font-ui: "Space Grotesk", system-ui, sans-serif;
+  --font-serif: "Instrument Serif", Georgia, serif;
+  --font-mono: "Space Mono", ui-monospace, Menlo, monospace;
+
+  --color-canvas: #09090b;
+  --color-panel: #141417;
+  --color-panel2: #1b1b1f;
+  --color-well: #0c0c0e;
+  --color-line: rgba(255, 255, 255, 0.055);
+  --color-line2: rgba(255, 255, 255, 0.1);
+  --color-ink: #f4f4f5;
+  --color-ink2: #a1a1aa;
+  --color-ink3: #65656e;
+  --color-gold: #6366f1;
+  --color-gold-hi: #818cf8;
+  --color-gold-dim: #312e81;
+  --color-green: #7ebe96;
+  --color-amber: #cba04e;
+  --color-red: #c56b5b;
+  --color-purple: #9b6be0;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    background: var(--color-canvas);
+    font-family: var(--font-ui);
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: 0.004em;
+    color: var(--color-ink);
+  }
+
+  button {
+    font-family: inherit;
+    border: none;
+    background: none;
+    color: inherit;
+    letter-spacing: inherit;
+  }
+
+  a {
+    color: var(--color-gold);
+    text-decoration: none;
+  }
+
+  a:hover {
+    color: var(--color-gold-hi);
+  }
+
+  ::-webkit-scrollbar {
+    width: 11px;
+    height: 11px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #1e1e22;
+    border: 3px solid var(--color-canvas);
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@keyframes cypulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@keyframes cyspin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes cyrise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes cyshimmer {
+  to {
+    background-position: 0 0, 220% 0;
+  }
+}
+
+@layer utilities {
+  .animate-cypulse {
+    animation: cypulse 1.8s infinite;
+  }
+
+  .animate-cypulse-slow {
+    animation: cypulse 2.4s infinite;
+  }
+
+  .animate-cyspin {
+    animation: cyspin 0.8s linear infinite;
+  }
+
+  .animate-cyrise {
+    animation: cyrise 0.3s ease;
+  }
+
+  .animate-cyshimmer {
+    animation: cyshimmer 4s linear infinite;
+  }
+
+  .font-ui {
+    font-family: var(--font-ui);
+  }
+
+  .font-mono {
+    font-family: var(--font-mono);
+  }
+
+  .font-serif {
+    font-family: var(--font-serif);
+  }
+}
+
+@media (min-width: 1180px) {
+  [data-search] {
+    display: flex !important;
+  }
+}

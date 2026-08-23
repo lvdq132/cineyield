@@ -1,0 +1,26 @@
+[project]
+name = "cineyield-agent-api"
+version = "0.1.0"
+description = "CineYield Agent API — agentic product-placement OS for entertainment"
+requires-python = ">=3.12"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+    "integration: requires real ClickHouse credentials",
+    "contest: contest smoke test — fails intentionally if MCP not reachable",
+]
+
+[tool.mypy]
+python_version = "3.12"
+strict = false
+ignore_missing_imports = true
