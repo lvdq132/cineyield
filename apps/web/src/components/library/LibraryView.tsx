@@ -30,7 +30,7 @@ export function LibraryView({
   return (
     <div className="animate-cyrise">
       <section className="relative px-0 pb-10 pt-14 text-center">
-        <div className="pointer-events-none absolute left-1/2 top-0 h-[400px] w-[860px] -translate-x-1/2 bg-[radial-gradient(46%_52%_at_50%_36%,rgba(99,102,241,0.22),transparent_70%)]" />
+        <div className="pointer-events-none absolute left-1/2 top-0 h-[400px] w-[860px] -translate-x-1/2 bg-[radial-gradient(46%_52%_at_50%_36%,rgba(59,130,246,0.22),transparent_70%)]" />
         <div className="relative mx-auto max-w-[760px]">
           <div className="mb-[26px] inline-flex h-[30px] items-center gap-2 rounded-full border border-line2 bg-panel px-3.5 text-[12.5px] text-ink2">
             <span className="h-1.5 w-1.5 rounded-full bg-gold shadow-[0_0_8px_var(--color-gold)]" />

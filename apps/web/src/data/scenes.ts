@@ -16,7 +16,7 @@ export const demoScenes: Record<string, Scene> = {
     duration: "00:44",
     currentTime: "00:12",
     playerGradient:
-      "radial-gradient(130% 100% at 50% 14%,#3a3050 0%,#221d2e 44%,#0d0b0f 100%)",
+      "radial-gradient(130% 100% at 50% 14%,#1e3a5f 0%,#15243a 44%,#0d0b0f 100%)",
     detectedObjects: [
       { label: "Wireless Headphones", category: "Consumer audio", confidence: 94, isPrimary: true },
       { label: "Smartphone", category: "Mobile devices", confidence: 92 },

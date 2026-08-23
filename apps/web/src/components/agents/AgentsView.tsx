@@ -97,7 +97,7 @@ function PipelineStrip({ steps }: { steps: PipelineStep[] }) {
           <span
             className={`whitespace-nowrap rounded-[2px] px-[13px] py-[7px] text-[11.5px] font-semibold ${
               step.active
-                ? "bg-[rgba(99,102,241,0.14)] text-gold"
+                ? "bg-[rgba(59,130,246,0.14)] text-gold"
                 : "bg-well text-ink2"
             }`}
           >
@@ -116,7 +116,7 @@ function AgentCard({ agent }: { agent: Agent }) {
   const stateChipStyles: Record<Agent["kind"], string> = {
     ok: "bg-[rgba(126,190,150,0.14)] text-green",
     pass: "bg-[rgba(126,190,150,0.14)] text-green",
-    ready: "bg-[rgba(99,102,241,0.14)] text-gold",
+    ready: "bg-[rgba(59,130,246,0.14)] text-gold",
   };
 
   return (

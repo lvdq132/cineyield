@@ -118,7 +118,7 @@ export function OpportunityDetailView({
                   key={cat}
                   className={`rounded px-[11px] py-[5px] text-xs ${
                     i === 0
-                      ? "bg-[rgba(99,102,241,0.14)] font-semibold text-gold"
+                      ? "bg-[rgba(59,130,246,0.14)] font-semibold text-gold"
                       : "bg-well text-ink2"
                   }`}
                 >

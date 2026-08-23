@@ -29,6 +29,32 @@ interface ApiOpportunityRow {
   is_primary?: boolean;
 }
 
+/**
+ * The scene "player" is an abstract gradient stand-in for footage (the demo
+ * stores no video frames). The detection overlay visualises the objects Gemini
+ * actually detected; the box *positions* are illustrative, laid out on a fixed
+ * set of slots so every scene renders like the designed fixture instead of an
+ * empty rectangle. Without this, live scenes (Harbor Signal, and even Rooftop
+ * Reflection once it loads live) showed a blank player with no overlay.
+ */
+const BOX_LAYOUTS = [
+  { x: 30, y: 46, width: 16, height: 18 },
+  { x: 58, y: 58, width: 10, height: 14 },
+  { x: 72, y: 40, width: 12, height: 22 },
+];
+
+function detectionBoxesFrom(oppRows: ApiOpportunityRow[]) {
+  const primaryFirst = [...oppRows].sort(
+    (a, b) => Number(Boolean(b.is_primary)) - Number(Boolean(a.is_primary)),
+  );
+  return primaryFirst.slice(0, BOX_LAYOUTS.length).map((o, i) => ({
+    label: o.object_label ?? o.category ?? "Placement",
+    confidence: Math.round(o.naturalness_score ?? 88),
+    ...BOX_LAYOUTS[i],
+    primary: i === 0,
+  }));
+}
+
 function normaliseComplexity(v?: string): Complexity {
   const s = (v ?? "").toLowerCase();
   return s === "high" ? "High" : s === "low" ? "Low" : "Medium";
@@ -96,14 +122,14 @@ async function fetchSceneFromApi(id: string): Promise<ApiSceneResult | null> {
       mood: String(s.mood ?? ""),
       duration: "00:44",
       currentTime: "00:00",
-      playerGradient: "radial-gradient(130% 100% at 50% 14%,#3a3050 0%,#221d2e 44%,#0d0b0f 100%)",
+      playerGradient: "radial-gradient(130% 100% at 50% 14%,#1e3a5f 0%,#15243a 44%,#0d0b0f 100%)",
       detectedObjects: (oppRows ?? []).slice(0, 8).map((o) => ({
         label: o.object_label ?? o.category ?? "",
         category: o.category ?? "",
         confidence: Math.round(o.naturalness_score ?? 80),
         isPrimary: Boolean(o.is_primary),
       })),
-      detectionBoxes: [],
+      detectionBoxes: detectionBoxesFrom(oppRows ?? []),
     };
 
     return {

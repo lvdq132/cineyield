@@ -123,8 +123,8 @@ function RevenueChart() {
       <svg viewBox="0 0 560 200" className="h-auto w-full" role="img" aria-label="Revenue trend chart">
         <defs>
           <linearGradient id="cyfill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#6366F1" stopOpacity="0.18" />
-            <stop offset="1" stopColor="#6366F1" stopOpacity="0" />
+            <stop offset="0" stopColor="#3b82f6" stopOpacity="0.18" />
+            <stop offset="1" stopColor="#3b82f6" stopOpacity="0" />
           </linearGradient>
         </defs>
         <line x1="40" y1="20" x2="40" y2="170" stroke="#1E1E22" />
@@ -136,10 +136,10 @@ function RevenueChart() {
         <path
           d="M40 150 L140 128 L240 132 L340 92 L440 70 L540 40"
           fill="none"
-          stroke="#6366F1"
+          stroke="#3b82f6"
           strokeWidth="2"
         />
-        <circle cx="540" cy="40" r="3.5" fill="#818CF8" />
+        <circle cx="540" cy="40" r="3.5" fill="#60a5fa" />
         {[
           { x: 40, label: "Mar" },
           { x: 140, label: "Apr" },

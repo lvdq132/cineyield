@@ -14,13 +14,13 @@
   --color-ink: #f4f4f5;
   --color-ink2: #a1a1aa;
   --color-ink3: #65656e;
-  --color-gold: #6366f1;
-  --color-gold-hi: #818cf8;
-  --color-gold-dim: #312e81;
+  --color-gold: #3b82f6;
+  --color-gold-hi: #60a5fa;
+  --color-gold-dim: #1e3a8a;
   --color-green: #7ebe96;
   --color-amber: #cba04e;
   --color-red: #c56b5b;
-  --color-purple: #9b6be0;
+  --color-purple: #38bdf8;
 }
 
 @layer base {

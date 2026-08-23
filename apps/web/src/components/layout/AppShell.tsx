@@ -40,7 +40,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden bg-canvas font-ui text-ink">
-      <div className="flex h-10 flex-none items-center justify-center gap-2 bg-gradient-to-r from-[#4f46e5] via-[#7c3aed] to-[#4f46e5] text-[13px] font-medium tracking-[0.01em] text-[#ececff]">
+      <div className="flex h-10 flex-none items-center justify-center gap-2 bg-gradient-to-r from-[#2563eb] via-[#3b82f6] to-[#2563eb] text-[13px] font-medium tracking-[0.01em] text-[#eaf2ff]">
         <span className="opacity-85">✨</span>
         Introducing CineYield — turn every scene into sellable inventory
         <span className="opacity-80">›</span>

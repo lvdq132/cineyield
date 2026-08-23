@@ -24,7 +24,11 @@ export function SceneView({ scene, opportunities, dataSource = "live" }: SceneVi
       <Breadcrumb
         items={[
           { label: "Studio Library", href: "/library" },
-          { label: `${scene.projectTitle} · ${scene.episode}` },
+          {
+            label: scene.episode
+              ? `${scene.projectTitle} · ${scene.episode}`
+              : scene.projectTitle,
+          },
           { label: scene.name },
         ]}
       />
@@ -62,8 +66,8 @@ function SceneVideoPanel({ scene }: { scene: Scene }) {
               height: `${box.height}%`,
               border: box.primary
                 ? "1.5px solid var(--color-gold)"
-                : "1px solid rgba(99,102,241,0.5)",
-              background: box.primary ? "rgba(99,102,241,0.08)" : "transparent",
+                : "1px solid rgba(59,130,246,0.5)",
+              background: box.primary ? "rgba(59,130,246,0.08)" : "transparent",
             }}
           >
             <span
@@ -148,6 +152,8 @@ function MetricBlock({
 }
 
 function DetectedObjectsPanel({ scene }: { scene: Scene }) {
+  const topObject =
+    scene.detectedObjects.find((o) => o.isPrimary) ?? scene.detectedObjects[0];
   return (
     <div className="flex flex-col rounded bg-panel p-[18px]">
       <div className="mb-3.5 flex items-center justify-between">
@@ -181,8 +187,9 @@ function DetectedObjectsPanel({ scene }: { scene: Scene }) {
           TOP RECOMMENDATION
         </div>
         <p className="mt-1.5 text-[12.5px] leading-[1.45] text-ink">
-          Wireless headphones — highest naturalness and screen time. Detected ≠
-          sellable until contextually scored.
+          {topObject
+            ? `${topObject.label} — highest naturalness and screen time. Detected ≠ sellable until contextually scored.`
+            : "Detected ≠ sellable until contextually scored."}
         </p>
       </div>
     </div>
@@ -218,7 +225,7 @@ function OpportunityTable({ opportunities }: { opportunities: Opportunity[] }) {
           key={opp.id}
           href={`/opportunities/${opp.id}`}
           className={`grid cursor-pointer grid-cols-[1.6fr_1fr_0.7fr_0.9fr_0.9fr_0.8fr_0.9fr_0.9fr_34px] gap-0 border-t border-line px-[22px] py-[13px] transition-colors hover:bg-[rgba(255,255,255,0.03)] ${
-            opp.primary ? "bg-[rgba(99,102,241,0.06)]" : ""
+            opp.primary ? "bg-[rgba(59,130,246,0.06)]" : ""
           }`}
         >
           <div className="flex flex-col">

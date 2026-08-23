@@ -35,10 +35,10 @@ export const demoContentRevenue: ContentRevenue[] = [
 
 /** @fixture Demo category mix — replace with a live revenue-by-category aggregate */
 export const demoCategorySegments: CategorySegment[] = [
-  { label: "Consumer audio", color: "#6366F1", pct: 34 },
-  { label: "Mobile / devices", color: "#4F46E5", pct: 28 },
-  { label: "Smart home", color: "#4338CA", pct: 22 },
-  { label: "Beverage / other", color: "#312E81", pct: 16 },
+  { label: "Consumer audio", color: "#3b82f6", pct: 34 },
+  { label: "Mobile / devices", color: "#2563eb", pct: 28 },
+  { label: "Smart home", color: "#1d4ed8", pct: 22 },
+  { label: "Beverage / other", color: "#1e3a8a", pct: 16 },
 ];
 
 export const demoTopScenes: TopScene[] = [

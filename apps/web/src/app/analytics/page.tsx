@@ -16,7 +16,7 @@ const FORMAT_LABELS: Record<string, string> = {
 // Same 4-shade palette CategoryDonut always used — the 4th slot is an
 // aggregate "Other" bucket whenever more than 3 real categories exist, so
 // the chart still reads as exactly 4 segments.
-const CATEGORY_COLORS = ["#6366F1", "#4F46E5", "#4338CA", "#312E81"];
+const CATEGORY_COLORS = ["#3b82f6", "#2563eb", "#1d4ed8", "#1e3a8a"];
 
 const SCENE_GRADIENTS = [
   "radial-gradient(circle at 40% 30%,#3a3050,#18121f)",
