@@ -54,3 +54,4 @@ apps/agent-api/.env
 
 # env files (backend)
 .env
+.worktrees/
