@@ -130,7 +130,7 @@ export function PrimaryButton({
   type = "button",
 }: PrimaryButtonProps) {
   const styles =
-    "inline-flex h-[46px] cursor-pointer items-center gap-2 rounded-[11px] border-[1.5px] border-transparent bg-[linear-gradient(var(--color-panel),var(--color-panel))_padding-box,linear-gradient(90deg,#2563eb,#3b82f6,#22d3ee,#60a5fa,#2563eb)_border-box] bg-[length:auto,220%_auto] bg-[position:0_0,0_0] px-6 text-[15px] font-semibold text-ink shadow-[0_8px_30px_rgba(59,130,246,0.20)] animate-cyshimmer transition-[filter] hover:brightness-[1.12]";
+    "inline-flex h-[46px] cursor-pointer items-center justify-between gap-8 border border-gold bg-gold px-5 text-[11px] font-bold uppercase tracking-[0.05em] text-[#111214] transition-colors hover:bg-transparent hover:text-gold";
 
   if (href) {
     return (
@@ -161,7 +161,7 @@ export function SecondaryButton({
   className = "",
 }: SecondaryButtonProps) {
   const styles =
-    "inline-flex h-[46px] cursor-pointer items-center gap-2 rounded-[11px] border border-line2 bg-panel px-6 text-[15px] font-semibold text-ink transition-colors hover:border-gold hover:text-gold-hi";
+    "inline-flex h-[46px] cursor-pointer items-center justify-between gap-8 border border-line2 bg-transparent px-5 text-[11px] font-bold uppercase tracking-[0.05em] text-ink transition-colors hover:border-gold hover:text-gold";
 
   if (href) {
     return (

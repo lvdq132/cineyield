@@ -22,12 +22,13 @@ export function AgentsView({
 }: AgentsViewProps) {
   return (
     <div className="animate-cyrise">
-      <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+      <div className="mb-8 grid grid-cols-1 gap-6 border-b border-line pb-7 md:grid-cols-[1fr_auto] md:items-end">
         <div>
-          <h1 className="m-0 text-[30px] font-bold leading-[1.05] tracking-[-0.02em] text-ink">
-            Agent Orchestration
+          <span className="font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-gold">System trace / Observable</span>
+          <h1 className="mt-4 text-[clamp(42px,5vw,72px)] font-medium leading-[0.9] tracking-[-0.06em] text-ink">
+            Agent orchestration.
           </h1>
-          <p className="mt-[7px] text-[13px] text-ink2">
+          <p className="mt-4 max-w-[680px] text-[15px] leading-[1.6] text-ink2">
             Six agents. One deterministic workflow. Every tool call observable.{" "}
             {isLive && eventCount != null && (
               <span className="text-green">{eventCount} real events from ClickHouse.</span>
@@ -97,7 +98,7 @@ function PipelineStrip({ steps }: { steps: PipelineStep[] }) {
           <span
             className={`whitespace-nowrap rounded-[2px] px-[13px] py-[7px] text-[11.5px] font-semibold ${
               step.active
-                ? "bg-[rgba(59,130,246,0.14)] text-gold"
+                ? "bg-[rgba(241,93,59,0.14)] text-gold"
                 : "bg-well text-ink2"
             }`}
           >
@@ -116,7 +117,7 @@ function AgentCard({ agent }: { agent: Agent }) {
   const stateChipStyles: Record<Agent["kind"], string> = {
     ok: "bg-[rgba(126,190,150,0.14)] text-green",
     pass: "bg-[rgba(126,190,150,0.14)] text-green",
-    ready: "bg-[rgba(59,130,246,0.14)] text-gold",
+    ready: "bg-[rgba(241,93,59,0.14)] text-gold",
   };
 
   return (

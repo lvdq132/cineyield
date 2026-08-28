@@ -42,11 +42,11 @@ export function AnalyticsView({
 
   return (
     <div className="animate-cyrise">
-      <div className="mb-6">
-        <h1 className="m-0 text-[30px] font-bold leading-[1.05] tracking-[-0.02em] text-ink">
-          Analytics & Revenue
-        </h1>
-        <p className="mt-[7px] text-[13px] text-ink2">
+      <div className="mb-8 grid grid-cols-1 gap-5 border-b border-line pb-7 md:grid-cols-[1fr_420px] md:items-end">
+        <div><span className="font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-gold">Portfolio intelligence / Outcomes</span><h1 className="mt-4 text-[clamp(42px,5vw,72px)] font-medium leading-[0.9] tracking-[-0.06em] text-ink">
+          Analytics &amp; revenue.
+        </h1></div>
+        <p className="m-0 text-[15px] leading-[1.6] text-ink2">
           Outcomes read from persisted event data.{" "}
           <span className="text-ink3">{liveStats ? "Live ClickHouse data." : "Demo dataset."}</span>
         </p>
@@ -123,8 +123,8 @@ function RevenueChart() {
       <svg viewBox="0 0 560 200" className="h-auto w-full" role="img" aria-label="Revenue trend chart">
         <defs>
           <linearGradient id="cyfill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#3b82f6" stopOpacity="0.18" />
-            <stop offset="1" stopColor="#3b82f6" stopOpacity="0" />
+            <stop offset="0" stopColor="#f15d3b" stopOpacity="0.18" />
+            <stop offset="1" stopColor="#f15d3b" stopOpacity="0" />
           </linearGradient>
         </defs>
         <line x1="40" y1="20" x2="40" y2="170" stroke="#1E1E22" />
@@ -136,10 +136,10 @@ function RevenueChart() {
         <path
           d="M40 150 L140 128 L240 132 L340 92 L440 70 L540 40"
           fill="none"
-          stroke="#3b82f6"
+          stroke="#f15d3b"
           strokeWidth="2"
         />
-        <circle cx="540" cy="40" r="3.5" fill="#60a5fa" />
+        <circle cx="540" cy="40" r="3.5" fill="#ff7657" />
         {[
           { x: 40, label: "Mar" },
           { x: 140, label: "Apr" },

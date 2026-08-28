@@ -1,19 +1,20 @@
 export function LogoMark() {
   return (
-    <svg viewBox="0 0 30 34" width="22" height="26" aria-hidden>
+    <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden>
+      <rect width="32" height="32" fill="#090a0b" />
       <path
-        d="M15 1 L28 8.5 V25.5 L15 33 L2 25.5 V8.5 Z"
+        d="M21.5 8.5A10 10 0 1 0 21.5 23.5"
         fill="none"
-        stroke="var(--color-gold)"
-        strokeWidth="2"
-        strokeLinejoin="round"
+        stroke="var(--color-ink)"
+        strokeWidth="3.8"
+        strokeLinecap="round"
       />
       <path
-        d="M20 12.5 a6.5 6.5 0 1 0 0 9"
+        d="M24 21L28 11"
         fill="none"
         stroke="var(--color-gold)"
-        strokeWidth="2.4"
-        strokeLinecap="round"
+        strokeWidth="2.8"
+        strokeLinecap="square"
       />
     </svg>
   );

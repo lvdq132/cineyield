@@ -14,7 +14,7 @@ export function AnalyzeOverlay({ progress }: AnalyzeOverlayProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(10,8,6,0.78)]">
-      <div className="w-[452px] rounded bg-panel2 p-7 shadow-[0_24px_70px_rgba(0,0,0,0.6)]">
+      <div className="w-[min(452px,calc(100vw-40px))] border border-line2 border-t-2 border-t-gold bg-panel2 p-7">
         <div className="mb-1 flex items-center gap-3">
           <svg
             width="22"

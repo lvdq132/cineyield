@@ -64,7 +64,7 @@ test.describe("CineYield canonical judged flow", () => {
 
   test("1. Library page loads and shows catalog", async ({ page }) => {
     await page.goto("/library");
-    await expect(page.locator("h1")).toContainText(/Every scene|CineYield/i);
+    await expect(page.locator("h1")).toContainText(/Find the value|CineYield/i);
   });
 
   test("2. Analyze a Cut — file upload triggers real backend pipeline", async ({

@@ -27,6 +27,11 @@ export function OpportunityDetailView({
         ]}
       />
 
+      <div className="mb-8 grid grid-cols-1 gap-5 border-b border-line pb-7 md:grid-cols-[1fr_420px] md:items-end">
+        <div><span className="font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-gold">Qualified inventory / Scene level</span><h1 className="mt-4 text-[clamp(42px,5vw,72px)] font-medium leading-[0.9] tracking-[-0.06em] text-ink">Placement opportunity.</h1></div>
+        <p className="m-0 text-[15px] leading-[1.6] text-ink2">A commercial reading of one moment, with context, rights, demand, and value kept separate.</p>
+      </div>
+
       <DataSourceNotice source={dataSource} />
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_344px]">
@@ -118,7 +123,7 @@ export function OpportunityDetailView({
                   key={cat}
                   className={`rounded px-[11px] py-[5px] text-xs ${
                     i === 0
-                      ? "bg-[rgba(59,130,246,0.14)] font-semibold text-gold"
+                      ? "bg-[rgba(241,93,59,0.14)] font-semibold text-gold"
                       : "bg-well text-ink2"
                   }`}
                 >

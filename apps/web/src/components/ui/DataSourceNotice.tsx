@@ -15,14 +15,14 @@ export function DataSourceNotice({ source }: DataSourceNoticeProps) {
 
   if (source === "offline") {
     return (
-      <div className="mb-4 rounded bg-well px-[13px] py-[11px] text-[11.5px] text-ink2">
+      <div className="mb-5 border-y border-line bg-well px-[13px] py-[11px] font-mono text-[10px] text-ink2">
         ⓘ Offline demo mode — showing sample data, no API configured.
       </div>
     );
   }
 
   return (
-    <div className="mb-4 rounded border-l-[3px] border-l-amber bg-panel px-[13px] py-[11px] text-[11.5px] text-amber">
+    <div className="mb-5 border-y border-line border-l-[3px] border-l-amber bg-panel px-[13px] py-[11px] font-mono text-[10px] text-amber">
       ⓘ Live API unreachable — showing sample data, not current results.
     </div>
   );

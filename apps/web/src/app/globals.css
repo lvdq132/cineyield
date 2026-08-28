@@ -1,26 +1,26 @@
 @import "tailwindcss";
 
 @theme {
-  --font-ui: "Space Grotesk", system-ui, sans-serif;
-  --font-serif: "Instrument Serif", Georgia, serif;
-  --font-mono: "Space Mono", ui-monospace, Menlo, monospace;
+  --font-ui: "Proxima Nova", "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+  --font-serif: "Proxima Nova", "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 
-  --color-canvas: #09090b;
-  --color-panel: #141417;
-  --color-panel2: #1b1b1f;
-  --color-well: #0c0c0e;
-  --color-line: rgba(255, 255, 255, 0.055);
-  --color-line2: rgba(255, 255, 255, 0.1);
-  --color-ink: #f4f4f5;
-  --color-ink2: #a1a1aa;
-  --color-ink3: #65656e;
-  --color-gold: #3b82f6;
-  --color-gold-hi: #60a5fa;
-  --color-gold-dim: #1e3a8a;
-  --color-green: #7ebe96;
-  --color-amber: #cba04e;
-  --color-red: #c56b5b;
-  --color-purple: #38bdf8;
+  --color-canvas: #090a0b;
+  --color-panel: #111214;
+  --color-panel2: #18191b;
+  --color-well: #0c0d0e;
+  --color-line: rgba(242, 240, 234, 0.10);
+  --color-line2: rgba(242, 240, 234, 0.20);
+  --color-ink: #f2f0ea;
+  --color-ink2: #aaa8a2;
+  --color-ink3: #777672;
+  --color-gold: #f15d3b;
+  --color-gold-hi: #ff7657;
+  --color-gold-dim: #9f402d;
+  --color-green: #83c9a2;
+  --color-amber: #d7a95d;
+  --color-red: #d27866;
+  --color-purple: #f2f0ea;
 }
 
 @layer base {
@@ -32,13 +32,14 @@
   body {
     margin: 0;
     padding: 0;
+    color-scheme: dark;
   }
 
   body {
     background: var(--color-canvas);
     font-family: var(--font-ui);
     -webkit-font-smoothing: antialiased;
-    letter-spacing: 0.004em;
+    letter-spacing: 0;
     color: var(--color-ink);
   }
 
@@ -48,6 +49,16 @@
     background: none;
     color: inherit;
     letter-spacing: inherit;
+  }
+
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  summary:focus-visible {
+    outline: 2px solid var(--color-gold);
+    outline-offset: 3px;
   }
 
   a {
@@ -65,7 +76,7 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: #1e1e22;
+    background: #343537;
     border: 3px solid var(--color-canvas);
   }
 
@@ -101,12 +112,6 @@
   }
 }
 
-@keyframes cyshimmer {
-  to {
-    background-position: 0 0, 220% 0;
-  }
-}
-
 @layer utilities {
   .animate-cypulse {
     animation: cypulse 1.8s infinite;
@@ -124,10 +129,6 @@
     animation: cyrise 0.3s ease;
   }
 
-  .animate-cyshimmer {
-    animation: cyshimmer 4s linear infinite;
-  }
-
   .font-ui {
     font-family: var(--font-ui);
   }
@@ -138,6 +139,48 @@
 
   .font-serif {
     font-family: var(--font-serif);
+  }
+}
+
+/* Shared product surfaces: editorial, square, and information-dense. */
+[class~="rounded"],
+[class~="rounded-lg"],
+[class*="rounded-["] {
+  border-radius: 0 !important;
+}
+
+[class*="shadow-["] {
+  box-shadow: none !important;
+}
+
+.bg-panel,
+.bg-panel2 {
+  border: 1px solid var(--color-line);
+}
+
+.bg-well {
+  border: 1px solid var(--color-line);
+}
+
+#cy-content h1,
+#cy-content h2,
+#cy-content h3 {
+  text-wrap: balance;
+}
+
+#cy-content input,
+#cy-content select,
+#cy-content textarea {
+  border-radius: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 

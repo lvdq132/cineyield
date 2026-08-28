@@ -29,84 +29,71 @@ export function LibraryView({
 
   return (
     <div className="animate-cyrise">
-      <section className="relative px-0 pb-10 pt-14 text-center">
-        <div className="pointer-events-none absolute left-1/2 top-0 h-[400px] w-[860px] -translate-x-1/2 bg-[radial-gradient(46%_52%_at_50%_36%,rgba(59,130,246,0.22),transparent_70%)]" />
-        <div className="relative mx-auto max-w-[760px]">
-          <div className="mb-[26px] inline-flex h-[30px] items-center gap-2 rounded-full border border-line2 bg-panel px-3.5 text-[12.5px] text-ink2">
-            <span className="h-1.5 w-1.5 rounded-full bg-gold shadow-[0_0_8px_var(--color-gold)]" />
-            Introducing Scene Intelligence
-            <span className="text-ink3">→</span>
+      <section className="relative mb-14 min-h-[590px] overflow-hidden border-b border-line">
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(9,10,11,.96)_0%,rgba(9,10,11,.80)_46%,rgba(9,10,11,.25)_100%),linear-gradient(0deg,#090a0b_0%,transparent_48%),url('/cineyield-rooftop-hero.jpg')] bg-cover bg-center" />
+        <div className="relative grid min-h-[590px] grid-cols-1 content-between gap-12 px-[clamp(24px,4vw,64px)] py-[clamp(54px,7vw,92px)] lg:grid-cols-[1.1fr_.9fr]">
+          <div className="lg:col-span-2">
+            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-gold">Studio inventory / Live workspace</span>
           </div>
-          <h1 className="m-0 text-[64px] font-bold leading-[0.98] tracking-[-0.035em] text-ink">
-            Every scene, read as
-            <br />
-            sellable inventory
-          </h1>
-          <p className="mx-auto mt-[22px] max-w-[560px] text-[16px] leading-[1.55] text-ink2">
-            AI scene understanding, rights clearance, and brand matching — built on
-            Gemini, ClickHouse, and deterministic guardrails. Your catalog, monetized.
-          </p>
-          <div className="mt-8 flex justify-center gap-3">
+          <div className="self-end">
+            <h1 className="m-0 max-w-[820px] text-[clamp(58px,7vw,108px)] font-medium leading-[0.84] tracking-[-0.07em] text-ink">
+              Find the value<br />inside the cut.
+            </h1>
+          </div>
+          <div className="self-end lg:pb-1">
+            <p className="m-0 max-w-[560px] text-[18px] leading-[1.58] text-ink2">
+              Analyze finished footage, qualify sponsor demand, and prepare a producer-controlled decision with every source and constraint visible.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
             <PrimaryButton onClick={startAnalyze}>
               Analyze a Cut
-              <span className="text-[17px] opacity-70">›</span>
+              <span aria-hidden>↗</span>
             </PrimaryButton>
             <SecondaryButton href="/marketplace">
-              Browse Catalog
-              <span className="text-[17px] opacity-55">›</span>
+              Browse Demand
+              <span aria-hidden>→</span>
             </SecondaryButton>
           </div>
-          <div className="mt-[42px] flex flex-wrap items-center justify-center gap-[18px] text-[12.5px] font-medium text-ink3">
-            <span>Gemini</span>
-            <span className="opacity-35">/</span>
-            <span>ClickHouse</span>
-            <span className="opacity-35">/</span>
-            <span>MCP</span>
-            <span className="opacity-35">/</span>
-            <span>Cloud Storage</span>
-            <span className="opacity-35">/</span>
-            <span>Vertex AI</span>
-          </div>
+        </div>
         </div>
       </section>
 
-      <div className="mx-auto max-w-[880px]">
+      <div className="mx-auto max-w-[1100px]">
         <DataSourceNotice source={dataSource} />
       </div>
 
-      <div className="mx-auto mb-16 mt-2 flex max-w-[880px] flex-wrap justify-center gap-x-[72px] gap-y-[18px] border-y border-line py-[30px]">
-        <div className="flex-none text-center">
-          <div className="text-[28px] font-bold tracking-[-0.02em] text-gold">
+      <div className="mx-auto mb-20 mt-2 grid max-w-[1100px] grid-cols-2 border-y border-line md:grid-cols-5">
+        <div className="min-h-[118px] border-b border-r border-line p-5 md:border-b-0">
+          <div className="text-[32px] font-semibold leading-none tracking-[-0.04em] text-gold">
             {approvedRevenue ?? DEMO_ESTIMATED_VALUE}
           </div>
-          <div className="mt-1 text-[12px] text-ink3">
+          <div className="mt-8 text-[10px] font-bold uppercase tracking-[0.08em] text-ink3">
             {approvedRevenue ? "Approved revenue" : "Estimated value"}
           </div>
         </div>
-        {stats.map((stat) => (
-          <div key={stat.label} className="flex-none text-center">
+        {stats.map((stat, index) => (
+          <div key={stat.label} className={`min-h-[118px] border-line p-5 ${index % 2 === 0 ? "border-r" : ""} md:border-r md:last:border-r-0`}>
             <div
-              className={`text-[28px] font-bold tracking-[-0.02em] ${
+              className={`text-[32px] font-semibold leading-none tracking-[-0.04em] ${
                 stat.color === "amber" ? "text-amber" : "text-ink"
               }`}
             >
               {stat.value}
             </div>
-            <div className="mt-1 text-[12px] text-ink3">{stat.label}</div>
+            <div className="mt-8 text-[10px] font-bold uppercase tracking-[0.08em] text-ink3">{stat.label}</div>
           </div>
         ))}
       </div>
 
-      <div className="mb-1.5 text-center">
-        <h2 className="m-0 text-[40px] font-bold tracking-[-0.03em] text-ink">
-          Showcase
-        </h2>
+      <div className="mb-9 flex flex-wrap items-end justify-between gap-5 border-b border-line pb-5">
+        <div>
+          <span className="font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-gold">Catalog / Sponsor-ready inventory</span>
+          <h2 className="mt-4 text-[clamp(42px,5vw,72px)] font-medium leading-[0.9] tracking-[-0.06em] text-ink">Analyzed titles.</h2>
+        </div>
+        <p className="max-w-[470px] text-[15px] leading-[1.6] text-ink2">Every title shows analyzed coverage, qualified opportunities, and modeled value without hiding incomplete work.</p>
       </div>
-      <p className="mb-9 text-center text-[15px] text-ink2">
-        Studios use CineYield to turn their catalog into inventory.
-      </p>
 
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 border-l border-t border-line md:grid-cols-2 lg:grid-cols-3">
         {catalog.map((item) => (
           <ContentCard key={item.id} item={item} />
         ))}
@@ -123,7 +110,7 @@ function ContentCard({ item }: { item: ContentProject }) {
   if (!item.href) {
     return (
       <div
-        className="overflow-hidden rounded-[10px] bg-panel opacity-70"
+        className="overflow-hidden border-b border-r border-line bg-panel opacity-70"
         title="No analyzed scenes yet"
         aria-disabled="true"
       >
@@ -134,7 +121,7 @@ function ContentCard({ item }: { item: ContentProject }) {
   return (
     <Link
       href={item.href}
-      className="cursor-pointer overflow-hidden rounded-[10px] bg-panel transition-colors hover:bg-panel2"
+      className="cursor-pointer overflow-hidden border-b border-r border-line bg-panel transition-colors hover:bg-panel2"
     >
       {body}
     </Link>
@@ -145,7 +132,7 @@ function ContentCardBody({ item }: { item: ContentProject }) {
   return (
     <>
       <div
-        className="relative h-[158px]"
+        className="relative h-[190px]"
         style={{ background: item.thumbnailGradient }}
       >
         <StatusBadge status={item.status} />

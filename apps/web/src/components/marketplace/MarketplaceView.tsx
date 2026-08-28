@@ -42,6 +42,11 @@ export function MarketplaceView({
         ]}
       />
 
+      <div className="mb-8 grid grid-cols-1 gap-5 border-b border-line pb-7 md:grid-cols-[1fr_420px] md:items-end">
+        <div><span className="font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-gold">Sponsor demand / Ranked live</span><h1 className="mt-4 text-[clamp(42px,5vw,72px)] font-medium leading-[0.9] tracking-[-0.06em] text-ink">Campaign matches.</h1></div>
+        <p className="m-0 text-[15px] leading-[1.6] text-ink2">Qualified campaigns ranked against narrative fit, rights, timing, budget, and producer-defined constraints.</p>
+      </div>
+
       <DataSourceNotice source={dataSource} />
 
       <div className="mb-5 flex items-center gap-2.5 border-y border-line py-[11px]">
