@@ -22,6 +22,7 @@ ENV NODE_ENV=production
 # Copy Next.js standalone output (requires output: 'standalone' in next.config)
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
 
 # Cloud Run injects $PORT
 ENV PORT=3000
