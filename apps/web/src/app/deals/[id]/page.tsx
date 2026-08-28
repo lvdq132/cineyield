@@ -123,7 +123,12 @@ async function fetchMatchForDeal(
 
 async function fetchDealFromApi(
   id: string,
-): Promise<{ proposal: Proposal; isApproved: boolean; hadMatch: boolean } | null> {
+): Promise<{
+  proposal: Proposal;
+  isApproved: boolean;
+  workflowState: string;
+  hadMatch: boolean;
+} | null> {
   if (!API_BASE) return null;
   try {
     const res = await fetch(`${API_BASE}/api/v1/deals/${encodeURIComponent(id)}`, {
@@ -158,7 +163,12 @@ async function fetchDealFromApi(
       guardrails,
     };
 
-    return { proposal, isApproved: Boolean(d.is_approved), hadMatch: Boolean(match) };
+    return {
+      proposal,
+      isApproved: Boolean(d.is_approved),
+      workflowState: d.workflow_state ?? "PRODUCER_REVIEW",
+      hadMatch: Boolean(match),
+    };
   } catch (err) {
     if (CONTEST_MODE) throw err;
     return null;
@@ -172,6 +182,7 @@ export default async function DealPage({ params }: DealPageProps) {
 
   const proposal = apiResult?.proposal ?? getProposalById(id);
   const isApproved = apiResult?.isApproved ?? false;
+  const workflowState = apiResult?.workflowState ?? "PRODUCER_REVIEW";
 
   if (!proposal) {
     notFound();
@@ -183,5 +194,12 @@ export default async function DealPage({ params }: DealPageProps) {
   // fixture, but the notice still needs to say this page isn't fully live.
   const dataSource = dataSourceFor(Boolean(API_BASE), Boolean(apiResult) && apiResult?.hadMatch === true);
 
-  return <DealView proposal={proposal} initialApproved={isApproved} dataSource={dataSource} />;
+  return (
+    <DealView
+      proposal={proposal}
+      initialApproved={isApproved}
+      initialWorkflowState={workflowState}
+      dataSource={dataSource}
+    />
+  );
 }

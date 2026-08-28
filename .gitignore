@@ -55,3 +55,6 @@ apps/agent-api/.env
 # env files (backend)
 .env
 .worktrees/
+
+# The public marketing site is a separate Sites-managed Git repository.
+/sites/

@@ -2,30 +2,60 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Check } from "lucide-react";
+import { Check, MessageSquareText, X } from "lucide-react";
 import type { Proposal } from "@/lib/types";
 import { Breadcrumb, SectionLabel } from "@/components/ui";
-import { useAppState } from "@/context/AppStateContext";
+import {
+  useAppState,
+  type DealWorkflowState,
+} from "@/context/AppStateContext";
 import { getAuditTrail } from "@/data/agent-events";
 import { DataSourceNotice } from "@/components/ui/DataSourceNotice";
 import type { DataSource } from "@/lib/data-source";
+import type { DealDecisionAction } from "@/lib/api-client";
 
 interface DealViewProps {
   proposal: Proposal;
   initialApproved?: boolean;
+  initialWorkflowState?: string;
   dataSource?: DataSource;
 }
 
-export function DealView({ proposal, initialApproved = false, dataSource = "live" }: DealViewProps) {
-  const { approved: contextApproved, approving, approveError, approvePlacement } = useAppState();
-  const [localApproved] = useState(initialApproved);
-  const approved = localApproved || contextApproved;
+export function DealView({
+  proposal,
+  initialApproved = false,
+  initialWorkflowState = "PRODUCER_REVIEW",
+  dataSource = "live",
+}: DealViewProps) {
+  const {
+    approved: contextApproved,
+    approving,
+    approveError,
+    dealWorkflowState,
+    approvePlacement,
+    decidePlacement,
+  } = useAppState();
+  const [pendingAction, setPendingAction] = useState<DealDecisionAction | null>(null);
+  const [decisionNote, setDecisionNote] = useState("");
+  const workflowState = (dealWorkflowState ?? initialWorkflowState) as DealWorkflowState;
+  const approved = dealWorkflowState
+    ? dealWorkflowState === "APPROVED"
+    : workflowState === "APPROVED" || initialApproved || contextApproved;
   const audit = getAuditTrail(approved);
 
   async function handleApprove() {
     // approved only flips once the API call (or fixture-mode path) actually succeeds —
     // see AppStateContext.approvePlacement.
     await approvePlacement(proposal.id);
+  }
+
+  async function handleDecision() {
+    if (!pendingAction) return;
+    const succeeded = await decidePlacement(proposal.id, pendingAction, decisionNote.trim());
+    if (succeeded) {
+      setPendingAction(null);
+      setDecisionNote("");
+    }
   }
 
   return (
@@ -60,6 +90,10 @@ export function DealView({ proposal, initialApproved = false, dataSource = "live
             View in Analytics →
           </Link>
         </div>
+      )}
+
+      {!approved && workflowState !== "PRODUCER_REVIEW" && (
+        <DecisionStatusBanner state={workflowState} />
       )}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_336px]">
@@ -122,6 +156,15 @@ export function DealView({ proposal, initialApproved = false, dataSource = "live
             approving={approving}
             approveError={approveError}
             onApprove={handleApprove}
+            pendingAction={pendingAction}
+            onChooseAction={setPendingAction}
+            decisionNote={decisionNote}
+            onDecisionNoteChange={setDecisionNote}
+            onSubmitDecision={handleDecision}
+            onCancelDecision={() => {
+              setPendingAction(null);
+              setDecisionNote("");
+            }}
           />
         </div>
 
@@ -129,6 +172,34 @@ export function DealView({ proposal, initialApproved = false, dataSource = "live
           <GuardrailsPanel guardrails={proposal.guardrails} />
           <AuditTrailPanel events={audit} />
         </div>
+      </div>
+    </div>
+  );
+}
+
+function DecisionStatusBanner({ state }: { state: DealWorkflowState }) {
+  const copy: Record<Exclude<DealWorkflowState, "PRODUCER_REVIEW" | "APPROVED">, { title: string; detail: string }> = {
+    REJECTED: {
+      title: "Placement rejected",
+      detail: "Decision recorded · sponsor inventory released",
+    },
+    COUNTERED: {
+      title: "Counter sent",
+      detail: "Producer terms recorded · awaiting sponsor response",
+    },
+    CHANGES_REQUESTED: {
+      title: "Changes requested",
+      detail: "Creative notes recorded · proposal returned for revision",
+    },
+  };
+  if (!(state in copy)) return null;
+  const status = copy[state as keyof typeof copy];
+  return (
+    <div className="mb-[18px] flex animate-cyrise items-center gap-3 border-l-[3px] border-l-gold bg-panel px-[18px] py-3.5">
+      <MessageSquareText size={18} stroke="var(--color-gold)" aria-hidden />
+      <div>
+        <div className="text-sm font-semibold text-ink">{status.title}</div>
+        <div className="font-mono text-[11.5px] text-ink2">{status.detail}</div>
       </div>
     </div>
   );
@@ -164,11 +235,23 @@ function ApprovalControls({
   approving,
   approveError,
   onApprove,
+  pendingAction,
+  onChooseAction,
+  decisionNote,
+  onDecisionNoteChange,
+  onSubmitDecision,
+  onCancelDecision,
 }: {
   approved: boolean;
   approving: boolean;
   approveError: string | null;
   onApprove: () => void;
+  pendingAction: DealDecisionAction | null;
+  onChooseAction: (action: DealDecisionAction) => void;
+  decisionNote: string;
+  onDecisionNoteChange: (value: string) => void;
+  onSubmitDecision: () => void;
+  onCancelDecision: () => void;
 }) {
   const disabled = approved || approving;
   return (
@@ -189,12 +272,92 @@ function ApprovalControls({
           <Check size={16} strokeWidth={2.4} aria-hidden />
           {approved ? "Placement Approved" : approving ? "Approving…" : "Approve Placement"}
         </button>
-        <GhostActionButton>Counter</GhostActionButton>
-        <GhostActionButton>Request Changes</GhostActionButton>
-        <GhostActionButton danger className="ml-auto">
+        <GhostActionButton
+          onClick={() => onChooseAction("counter")}
+          active={pendingAction === "counter"}
+          disabled={approving}
+        >
+          Counter
+        </GhostActionButton>
+        <GhostActionButton
+          onClick={() => onChooseAction("request_changes")}
+          active={pendingAction === "request_changes"}
+          disabled={approving}
+        >
+          Request Changes
+        </GhostActionButton>
+        <GhostActionButton
+          danger
+          className="ml-auto"
+          onClick={() => onChooseAction("reject")}
+          active={pendingAction === "reject"}
+          disabled={approving}
+        >
           Reject
         </GhostActionButton>
       </div>
+
+      {pendingAction && pendingAction !== "approve" && (
+        <div className="animate-cyrise border border-line2 bg-panel p-4" role="group" aria-label="Producer decision details">
+          <div className="mb-3 flex items-start justify-between gap-4">
+            <div>
+              <div className="text-sm font-semibold text-ink">
+                {pendingAction === "counter"
+                  ? "Send counter terms"
+                  : pendingAction === "request_changes"
+                    ? "Request proposal changes"
+                    : "Reject this placement"}
+              </div>
+              <p className="mt-1 text-xs leading-5 text-ink2">
+                This decision is written to the proposal workflow and producer audit trail.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onCancelDecision}
+              className="cursor-pointer text-ink3 transition-colors hover:text-ink"
+              aria-label="Cancel decision"
+            >
+              <X size={18} aria-hidden />
+            </button>
+          </div>
+          <label className="block">
+            <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink2">
+              Producer note {pendingAction === "reject" ? "(optional)" : "(required)"}
+            </span>
+            <textarea
+              value={decisionNote}
+              onChange={(event) => onDecisionNoteChange(event.target.value)}
+              rows={3}
+              placeholder={
+                pendingAction === "counter"
+                  ? "State the revised fee, territory, or usage terms…"
+                  : pendingAction === "request_changes"
+                    ? "Describe the creative or legal changes required…"
+                    : "Add a reason for the audit trail…"
+              }
+              className="w-full resize-y border border-line2 bg-well px-3 py-2.5 text-[13px] leading-5 text-ink outline-none placeholder:text-ink3 focus:border-gold"
+            />
+          </label>
+          <div className="mt-3 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={onCancelDecision}
+              className="cursor-pointer border border-line2 px-4 py-2 text-xs font-semibold text-ink2 hover:border-ink3 hover:text-ink"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={onSubmitDecision}
+              disabled={approving || (pendingAction !== "reject" && !decisionNote.trim())}
+              className="cursor-pointer bg-gold px-4 py-2 text-xs font-bold text-white hover:bg-gold-hi disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {approving ? "Recording…" : "Confirm decision"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {approveError && (
         <div className="flex animate-cyrise items-center gap-3 rounded border-l-[3px] border-l-red bg-panel px-[18px] py-3.5">
@@ -219,15 +382,26 @@ function GhostActionButton({
   children,
   danger,
   className = "",
+  onClick,
+  active,
+  disabled,
 }: {
   children: React.ReactNode;
   danger?: boolean;
   className?: string;
+  onClick?: () => void;
+  active?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
-      className={`cursor-pointer rounded border bg-transparent px-[18px] py-3 text-[13.5px] font-semibold transition-colors hover:border-gold hover:text-gold-hi ${
+      onClick={onClick}
+      disabled={disabled}
+      aria-pressed={active}
+      className={`cursor-pointer rounded border px-[18px] py-3 text-[13.5px] font-semibold transition-colors hover:border-gold hover:text-gold-hi disabled:cursor-wait disabled:opacity-50 ${
+        active ? "border-gold bg-[rgba(241,93,59,0.08)] text-gold" : "bg-transparent"
+      } ${
         danger
           ? "border-[rgba(197,107,91,0.3)] text-red"
           : "border-line2 text-ink"

@@ -331,6 +331,68 @@ def approve_proposal(proposal_id: str) -> None:
     logger.info("Proposal %s approved (workflow_state=APPROVED)", proposal_id)
 
 
+def set_proposal_workflow_state(proposal_id: str, workflow_state: str) -> None:
+    """Persist a producer decision on a proposal and wait for the mutation.
+
+    Only states emitted by the producer decision API are accepted.  Waiting
+    for the mutation makes a refresh immediately reflect the decision instead
+    of briefly showing stale data from ClickHouse.
+    """
+    allowed = {"PRODUCER_REVIEW", "APPROVED", "REJECTED", "COUNTERED", "CHANGES_REQUESTED"}
+    if workflow_state not in allowed:
+        raise ValueError(f"Unsupported proposal workflow state: {workflow_state}")
+
+    client = get_clickhouse_client()
+    client.command(
+        "ALTER TABLE cineyield.proposals UPDATE workflow_state = {state:String} "
+        "WHERE id = {proposal_id:String} SETTINGS mutations_sync = 1",
+        parameters={"proposal_id": proposal_id, "state": workflow_state},
+    )
+    logger.info("Proposal %s workflow state set to %s", proposal_id, workflow_state)
+
+
+def get_latest_proposal_id(*, opportunity_id: str, campaign_id: str) -> str | None:
+    """Return the newest persisted proposal for a canonical opportunity pair."""
+    client = get_clickhouse_client()
+    result = client.query(
+        "SELECT id FROM cineyield.proposals "
+        "WHERE opportunity_id = {opportunity_id:String} "
+        "AND campaign_id = {campaign_id:String} "
+        "ORDER BY composed_at DESC LIMIT 1",
+        parameters={
+            "opportunity_id": opportunity_id,
+            "campaign_id": campaign_id,
+        },
+    )
+    return str(result.result_rows[0][0]) if result.result_rows else None
+
+
+def list_proposals(limit: int = 100) -> list[dict[str, Any]]:
+    """List the latest version of each proposal, newest first."""
+    client = get_clickhouse_client()
+    result = client.query(
+        "SELECT id, "
+        "argMax(opportunity_id, composed_at) AS opportunity_id, "
+        "argMax(campaign_id, composed_at) AS campaign_id, "
+        "argMax(brand_name, composed_at) AS brand_name, "
+        "argMax(campaign_name, composed_at) AS campaign_name, "
+        "argMax(placement_fee_usd, composed_at) AS placement_fee_usd, "
+        "argMax(workflow_state, composed_at) AS workflow_state, "
+        "max(composed_at) AS created_at "
+        "FROM cineyield.proposals GROUP BY id "
+        "ORDER BY created_at DESC LIMIT {limit:UInt32}",
+        parameters={"limit": max(1, min(limit, 500))},
+    )
+    items: list[dict[str, Any]] = []
+    for values in result.result_rows:
+        item = dict(zip(result.column_names, values))
+        if hasattr(item.get("created_at"), "isoformat"):
+            item["created_at"] = item["created_at"].isoformat()
+        item["status"] = item.pop("workflow_state", "PRODUCER_REVIEW")
+        items.append(item)
+    return items
+
+
 def get_proposal(proposal_id: str) -> dict[str, Any] | None:
     """Load a proposal from ClickHouse.
 

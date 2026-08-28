@@ -14,7 +14,19 @@ import {
   ANALYZE_TARGET_SCENE,
   demoAnalyzeSteps,
 } from "@/data/agent-events";
-import { ingest, deals, ApiError } from "@/lib/api-client";
+import {
+  ingest,
+  deals,
+  ApiError,
+  type DealDecisionAction,
+} from "@/lib/api-client";
+
+export type DealWorkflowState =
+  | "PRODUCER_REVIEW"
+  | "APPROVED"
+  | "REJECTED"
+  | "COUNTERED"
+  | "CHANGES_REQUESTED";
 
 interface AppState {
   analyzing: boolean;
@@ -22,6 +34,7 @@ interface AppState {
   approved: boolean;
   approving: boolean;
   approveError: string | null;
+  dealWorkflowState: DealWorkflowState | null;
   analyzeFileName: string | null;
   analyzeError: string | null;
 }
@@ -30,6 +43,11 @@ interface AppStateContextValue extends AppState {
   startAnalyze: () => void;
   analyzeWithFile: (file: File) => void;
   approvePlacement: (dealId?: string) => Promise<void>;
+  decidePlacement: (
+    dealId: string,
+    action: DealDecisionAction,
+    note?: string,
+  ) => Promise<boolean>;
   registerFileInput: (el: HTMLInputElement | null) => void;
 }
 
@@ -45,6 +63,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     approved: false,
     approving: false,
     approveError: null,
+    dealWorkflowState: null,
     analyzeFileName: null,
     analyzeError: null,
   });
@@ -153,22 +172,68 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     }
   }, [state.analyzing, router]);
 
-  const approvePlacement = useCallback(async (dealId?: string) => {
-    if (dealId && API_BASE) {
-      // Live mode: the approval only counts once ClickHouse confirms the write.
-      setState((prev) => ({ ...prev, approving: true, approveError: null }));
-      try {
-        await deals.approve(dealId, { approved: true, approver: "producer" });
-        setState((prev) => ({ ...prev, approved: true, approving: false, approveError: null }));
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        setState((prev) => ({ ...prev, approving: false, approveError: msg }));
+  const decidePlacement = useCallback(async (
+    dealId: string,
+    action: DealDecisionAction,
+    note = "",
+  ): Promise<boolean> => {
+    setState((prev) => ({ ...prev, approving: true, approveError: null }));
+
+    const stateByAction: Record<DealDecisionAction, DealWorkflowState> = {
+      approve: "APPROVED",
+      reject: "REJECTED",
+      counter: "COUNTERED",
+      request_changes: "CHANGES_REQUESTED",
+    };
+
+    try {
+      if (API_BASE) {
+        const result = await deals.decide(dealId, {
+          action,
+          approver: "producer",
+          note,
+        });
+        const workflowState = (result.workflow_state ?? stateByAction[action]) as DealWorkflowState;
+        setState((prev) => ({
+          ...prev,
+          approved: workflowState === "APPROVED",
+          approving: false,
+          approveError: null,
+          dealWorkflowState: workflowState,
+        }));
+      } else {
+        // Disclosed offline demo mode: preserve the same interaction semantics
+        // without claiming a server-side write occurred.
+        const workflowState = stateByAction[action];
+        setState((prev) => ({
+          ...prev,
+          approved: workflowState === "APPROVED",
+          approving: false,
+          approveError: null,
+          dealWorkflowState: workflowState,
+        }));
       }
+      return true;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setState((prev) => ({ ...prev, approving: false, approveError: msg }));
+      return false;
+    }
+  }, []);
+
+  const approvePlacement = useCallback(async (dealId?: string) => {
+    if (!dealId) {
+      setState((prev) => ({
+        ...prev,
+        approved: true,
+        approving: false,
+        approveError: null,
+        dealWorkflowState: "APPROVED",
+      }));
       return;
     }
-    // Fixture mode (no API configured): a legitimate offline demo path, not a live claim.
-    setState((prev) => ({ ...prev, approved: true, approving: false, approveError: null }));
-  }, []);
+    await decidePlacement(dealId, "approve");
+  }, [decidePlacement]);
 
   return (
     <AppStateContext.Provider
@@ -177,6 +242,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         startAnalyze,
         analyzeWithFile,
         approvePlacement,
+        decidePlacement,
         registerFileInput,
       }}
     >

@@ -20,7 +20,11 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new ApiError(res.status, body.error ?? "api_error", body.message ?? res.statusText);
+    throw new ApiError(
+      res.status,
+      body.error ?? "api_error",
+      body.detail ?? body.message ?? res.statusText,
+    );
   }
   return res.json() as Promise<T>;
 }
@@ -216,11 +220,26 @@ export interface ApproveResponse {
   revenue_event_id?: string;
 }
 
+export type DealDecisionAction = "approve" | "reject" | "counter" | "request_changes";
+
+export interface DealDecisionResponse extends ApproveResponse {
+  workflow_state?: string;
+  action?: DealDecisionAction;
+}
+
 export const deals = {
   list: () => apiFetch<DealsListResponse>("/api/v1/deals"),
   get: (proposalId: string) => apiFetch<ApiProposal>(`/api/v1/deals/${proposalId}`),
   approve: (proposalId: string, body: ApproveRequest) =>
     apiFetch<ApproveResponse>(`/api/v1/deals/${proposalId}/approve`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  decide: (
+    proposalId: string,
+    body: { action: DealDecisionAction; approver: string; note?: string },
+  ) =>
+    apiFetch<DealDecisionResponse>(`/api/v1/deals/${proposalId}/decision`, {
       method: "POST",
       body: JSON.stringify(body),
     }),

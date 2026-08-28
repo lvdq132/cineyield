@@ -133,3 +133,115 @@ def test_rejection_writes_asset_id_on_agent_event():
     assert resp.status_code == 200
     assert resp.json()["approved"] is False
     assert mock_agent_event.call_args.kwargs["asset_id"] == "horizons"
+
+
+def test_canonical_alias_gets_latest_real_proposal():
+    proposal = {
+        "id": "prop_latest",
+        "opportunity_id": "opp_horizons_rooftop_001",
+        "campaign_id": "camp_aurelius_001",
+        "workflow_state": "PRODUCER_REVIEW",
+        "is_approved": False,
+    }
+    with patch(
+        "cineyield.routers.v1.deals.get_settings", return_value=_mock_settings(True)
+    ), patch(
+        "cineyield.db.repository.get_latest_proposal_id", return_value="prop_latest"
+    ) as mock_resolve, patch(
+        "cineyield.db.repository.get_proposal", return_value=proposal
+    ):
+        resp = client.get("/api/v1/deals/aurelius-systems")
+
+    assert resp.status_code == 200
+    assert resp.json()["id"] == "prop_latest"
+    assert resp.json()["canonical_alias"] == "aurelius-systems"
+    mock_resolve.assert_called_once_with(
+        opportunity_id="opp_horizons_rooftop_001",
+        campaign_id="camp_aurelius_001",
+    )
+
+
+def test_canonical_alias_approval_writes_against_resolved_proposal():
+    fake = _fake_ch_client(
+        ("prop_latest", "opp_horizons_rooftop_001", "camp_aurelius_001", 219000.0, "horizons")
+    )
+    with patch(
+        "cineyield.routers.v1.deals.get_settings", return_value=_mock_settings(True)
+    ), patch(
+        "cineyield.db.repository.get_latest_proposal_id", return_value="prop_latest"
+    ), patch(
+        "cineyield.db.client.get_clickhouse_client", return_value=fake
+    ), patch(
+        "cineyield.db.repository.get_proposal", return_value={"is_approved": False}
+    ), patch("cineyield.db.repository.approve_proposal") as mock_approve, patch(
+        "cineyield.db.repository.write_revenue_event", return_value="rev_alias"
+    ), patch("cineyield.db.repository.write_agent_event"):
+        resp = client.post(
+            "/api/v1/deals/aurelius-systems/approve",
+            json={"approved": True, "approver": "producer"},
+        )
+
+    assert resp.status_code == 200
+    assert resp.json()["deal_id"] == "prop_latest"
+    mock_approve.assert_called_once_with("prop_latest")
+
+
+def test_counter_decision_persists_workflow_and_audit_event():
+    proposal = {
+        "id": "prop_counter",
+        "opportunity_id": "opp_1",
+        "campaign_id": "camp_1",
+        "is_approved": False,
+    }
+    with patch(
+        "cineyield.routers.v1.deals.get_settings", return_value=_mock_settings(True)
+    ), patch(
+        "cineyield.db.repository.get_proposal", return_value=proposal
+    ), patch(
+        "cineyield.db.repository.set_proposal_workflow_state"
+    ) as mock_state, patch(
+        "cineyield.db.repository.write_agent_event"
+    ) as mock_event:
+        resp = client.post(
+            "/api/v1/deals/prop_counter/decision",
+            json={
+                "action": "counter",
+                "approver": "producer",
+                "note": "Raise fee to $225K",
+            },
+        )
+
+    assert resp.status_code == 200
+    assert resp.json()["workflow_state"] == "COUNTERED"
+    mock_state.assert_called_once_with("prop_counter", "COUNTERED")
+    assert mock_event.call_args.kwargs["kind"] == "counter"
+
+
+def test_counter_requires_a_producer_note():
+    with patch(
+        "cineyield.routers.v1.deals.get_settings", return_value=_mock_settings(True)
+    ), patch(
+        "cineyield.db.repository.get_proposal",
+        return_value={"id": "prop_counter", "opportunity_id": "opp_1", "campaign_id": "camp_1"},
+    ):
+        resp = client.post(
+            "/api/v1/deals/prop_counter/decision",
+            json={"action": "counter", "approver": "producer", "note": ""},
+        )
+
+    assert resp.status_code == 422
+    assert "note" in resp.json()["detail"].lower()
+
+
+def test_list_deals_uses_persisted_latest_proposals():
+    items = [{"id": "prop_1", "status": "PRODUCER_REVIEW"}]
+    with patch(
+        "cineyield.routers.v1.deals.get_settings", return_value=_mock_settings(True)
+    ), patch(
+        "cineyield.db.repository.list_proposals", return_value=items
+    ) as mock_list:
+        resp = client.get("/api/v1/deals?limit=25")
+
+    assert resp.status_code == 200
+    assert resp.json() == {"items": items, "total": 1}
+    mock_list.assert_called_once_with(limit=25)
