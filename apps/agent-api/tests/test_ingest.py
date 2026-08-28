@@ -1,11 +1,16 @@
-"""Tests for the video ingest API endpoints."""
 import io
-
+from unittest.mock import AsyncMock, patch
+import pytest
 from fastapi.testclient import TestClient
 
 from main import app
 
 client = TestClient(app)
+
+@pytest.fixture(autouse=True)
+def mock_pipeline_job():
+    with patch("cineyield.routers.v1.ingest._run_pipeline_job", new_callable=AsyncMock):
+        yield
 
 MP4_HEADER = b"\x00\x00\x00\x18ftypisom"  # minimal MP4 magic bytes
 
