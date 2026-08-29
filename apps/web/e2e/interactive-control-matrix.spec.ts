@@ -2,7 +2,7 @@
  * CineYield Interactive Control Matrix — E2E Test Suite
  *
  * Exercises every distinct interactive surface across:
- *   1. Public Sites (https://cineyield.com) — 10 scenarios
+ *   1. Public Sites (https://cineyield.com) — 11 scenarios
  *   2. Operational App (Cloud Run) — 7 scenarios
  *
  * Design contract:
@@ -315,6 +315,39 @@ test.describe(
       if (await emailInput.isVisible()) {
         await emailInput.fill("test.judge@example.com");
       }
+
+      expect(errors).toHaveLength(0);
+    });
+
+    test("11. Sponsor Brief → Real Scene Search → Live Campaign Matches", async ({
+      page,
+    }) => {
+      const errors: string[] = [];
+      attachErrorMonitor(page, errors);
+
+      await page.goto(`${PUBLIC_URL}/sponsors#brief-builder`, {
+        waitUntil: "domcontentloaded",
+      });
+      await page.getByRole("button", { name: "Mobile Devices" }).click();
+      await page.getByRole("button", { name: "$150K+" }).click();
+
+      const runSearch = page.getByRole("link", { name: /Run this live search/i });
+      const handoff = await runSearch.getAttribute("href");
+      expect(handoff).toContain("category=Mobile+Devices");
+      expect(handoff).toContain("budget=250000");
+
+      await page.goto(
+        `${APP_URL}/sponsor-search?category=Mobile%20Devices&objective=Launch%20a%20product&budget=250000&territory=US`,
+        { waitUntil: "domcontentloaded" },
+      );
+      await expect(page.locator("h1")).toContainText(/Find the scene/i);
+      await expect(page.getByText(/real scenes? for Mobile Devices/i)).toBeVisible();
+
+      const matchLink = page.getByRole("link", { name: /Match sponsors/i }).first();
+      await expect(matchLink).toBeVisible();
+      await matchLink.click();
+      await page.waitForURL(/\/marketplace\?opportunity_id=/, { timeout: 20_000 });
+      await expect(page.locator("h1")).toContainText(/Campaign matches/i);
 
       expect(errors).toHaveLength(0);
     });

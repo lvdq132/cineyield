@@ -9,10 +9,12 @@ from .ingest import router as ingest_router
 from .opportunities import router as opportunities_router
 from .pipeline import router as pipeline_router
 from .scenes import router as scenes_router
+from .sponsor_search import router as sponsor_search_router
 
 router = APIRouter(prefix="/api/v1")
 router.include_router(content_router)
 router.include_router(scenes_router)
+router.include_router(sponsor_search_router)
 router.include_router(opportunities_router)
 router.include_router(deals_router)
 router.include_router(ingest_router)

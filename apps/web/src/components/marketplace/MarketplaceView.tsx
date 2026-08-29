@@ -37,7 +37,8 @@ export function MarketplaceView({
     <div className="animate-cyrise">
       <Breadcrumb
         items={[
-          { label: "Opportunity", href: "/opportunities/opp_horizons_rooftop_001" },
+          { label: "Sponsor Finder", href: "/sponsor-search" },
+          { label: "Opportunity", href: `/opportunities/${opportunityId ?? "opp_horizons_rooftop_001"}` },
           { label: "Brand Matches" },
         ]}
       />

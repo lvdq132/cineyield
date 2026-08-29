@@ -143,6 +143,53 @@ def get_scene_opportunities(scene_id: str) -> list[dict[str, Any]]:
     return [dict(zip(result.column_names, row)) for row in result.result_rows]
 
 
+def search_sponsor_ready_scenes(
+    *,
+    category: str,
+    working_budget_usd: float,
+    limit: int = 8,
+) -> list[dict[str, Any]]:
+    """Return real analyzed placement inventory for a sponsor brief.
+
+    The category is an exact taxonomy match. Ranking combines Gemini-derived
+    scene signals already stored in ClickHouse with commercial fit: naturalness,
+    brand safety, useful screen time, and whether the working budget can cover
+    the opportunity's modeled value. No invented counts or fixture results.
+    """
+    client = get_clickhouse_client()
+    result = client.query(
+        "SELECT DISTINCT "
+        "  po.id AS opportunity_id, po.scene_id, po.asset_id, "
+        "  ca.title AS asset_title, ca.subtitle AS asset_subtitle, "
+        "  s.episode, s.name AS scene_name, s.summary AS scene_summary, "
+        "  s.mood, s.narrative_weight, po.category, po.object_label, "
+        "  po.timecode_start, po.timecode_end, po.screen_time_seconds, "
+        "  po.naturalness_score, po.brand_safety_score, "
+        "  po.rights_status, po.estimated_value_usd, "
+        "  round("
+        "    (po.naturalness_score * 0.38) + "
+        "    (po.brand_safety_score * 0.27) + "
+        "    (least(toFloat64(po.screen_time_seconds) / 30.0, 1.0) * 15.0) + "
+        "    (if({budget:Float64} >= po.estimated_value_usd, 1.0, "
+        "      greatest({budget:Float64} / greatest(po.estimated_value_usd, 1.0), 0.0)) * 20.0), "
+        "    1"
+        "  ) AS fit_score "
+        "FROM cineyield.placement_opportunities po "
+        "ANY INNER JOIN cineyield.scenes s ON po.scene_id = s.id "
+        "ANY INNER JOIN cineyield.content_assets ca ON po.asset_id = ca.id "
+        "WHERE lowerUTF8(po.category) = lowerUTF8({category:String}) "
+        "  AND po.rights_status IN ('clear', 'review') "
+        "ORDER BY fit_score DESC, po.naturalness_score DESC "
+        "LIMIT {limit:UInt32}",
+        parameters={
+            "category": category.strip(),
+            "budget": max(float(working_budget_usd), 1.0),
+            "limit": max(1, min(int(limit), 20)),
+        },
+    )
+    return [dict(zip(result.column_names, row)) for row in result.result_rows]
+
+
 # ─────────────────────────────────────────────────────────────
 # Campaigns (also read by Market Agent via MCP)
 # ─────────────────────────────────────────────────────────────

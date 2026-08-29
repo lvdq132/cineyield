@@ -8,7 +8,7 @@ import type { CampaignMatch, MatchBreakdown, TopMatch } from "@/lib/types";
 import { IS_CONTEST_MODE as CONTEST_MODE } from "@/lib/contest-mode";
 import { dataSourceFor } from "@/lib/data-source";
 
-// The seeded canonical opportunity used in the demo flow
+// The seeded canonical opportunity used when no search handoff is supplied.
 const CANONICAL_OPP_ID = "opp_horizons_rooftop_001";
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
 
@@ -70,7 +70,7 @@ function toBreakdown(m: Record<string, unknown>): MatchBreakdown[] {
   ];
 }
 
-async function fetchMarketData(): Promise<{
+async function fetchMarketData(opportunityId: string): Promise<{
   topMatch: TopMatch;
   matches: CampaignMatch[];
   breakdown: MatchBreakdown[];
@@ -82,7 +82,7 @@ async function fetchMarketData(): Promise<{
   if (!API_BASE) return null;
 
   const res = await fetch(
-    `${API_BASE}/api/v1/opportunities/${CANONICAL_OPP_ID}/matches`,
+    `${API_BASE}/api/v1/opportunities/${encodeURIComponent(opportunityId)}/matches`,
     { next: { revalidate: 60 } },
   );
   if (!res.ok) {
@@ -111,7 +111,16 @@ async function fetchMarketData(): Promise<{
   };
 }
 
-export default async function MarketplacePage() {
+interface MarketplacePageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export default async function MarketplacePage({ searchParams }: MarketplacePageProps) {
+  const params = await searchParams;
+  const requestedOpportunity = params.opportunity_id;
+  const opportunityId = typeof requestedOpportunity === "string" && requestedOpportunity
+    ? requestedOpportunity
+    : CANONICAL_OPP_ID;
   let topMatch = demoTopMatch;
   let matches = demoMatches;
   let breakdown = demoMatchBreakdown;
@@ -120,7 +129,7 @@ export default async function MarketplacePage() {
   let rankedCount: number | undefined;
   let mcpLatencyMs: number | undefined;
 
-  const live = await fetchMarketData().catch((err) => {
+  const live = await fetchMarketData(opportunityId).catch((err) => {
     if (CONTEST_MODE) throw err;
     return null;
   });
@@ -142,7 +151,7 @@ export default async function MarketplacePage() {
       topMatch={topMatch}
       matches={matches}
       breakdown={breakdown}
-      opportunityId={CANONICAL_OPP_ID}
+      opportunityId={opportunityId}
       topCampaignId={topCampaignId}
       totalScanned={totalScanned}
       rankedCount={rankedCount}

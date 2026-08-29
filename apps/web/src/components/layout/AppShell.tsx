@@ -11,6 +11,7 @@ import { LogoMark } from "@/components/ui/LogoMark";
 const navItems = [
   { label: "Library", href: "/library" },
   { label: "Opportunities", href: "/scene/rooftop-reflection" },
+  { label: "Sponsor Finder", href: "/sponsor-search" },
   { label: "Marketplace", href: "/marketplace" },
   { label: "Deals", href: "/deals/aurelius-systems" },
   { label: "Agents", href: "/agents" },
