@@ -49,11 +49,13 @@ async def get_opportunity(opportunity_id: str) -> dict:
     if not settings.clickhouse_configured:
         raise HTTPException(503, detail="ClickHouse not configured")
     client = get_clickhouse_client()
+    from ...db import repository
+    repository._ensure_opportunity_columns(client)
     result = client.query(
         "SELECT id, scene_id, asset_id, category, object_label, "
         "timecode_start, timecode_end, screen_time_seconds, "
         "naturalness_score, brand_safety_score, complexity, "
-        "rights_status, estimated_value_usd, is_primary "
+        "rights_status, estimated_value_usd, is_primary, placement_zone, placement_notes "
         "FROM cineyield.placement_opportunities WHERE id = {opp_id:String} LIMIT 1",
         parameters={"opp_id": opportunity_id},
     )
@@ -70,6 +72,8 @@ async def get_opportunity_matches(opportunity_id: str) -> dict:
         raise HTTPException(503, detail="ClickHouse not configured")
 
     client = get_clickhouse_client()
+    from ...db import repository
+    repository._ensure_opportunity_columns(client)
     result = client.query(
         # scene_id is required: scoring reads the scene's mood and
         # narrative_weight, and without them this endpoint scores differently
@@ -138,12 +142,14 @@ async def create_proposal(opportunity_id: str, body: ProposeRequest) -> dict:
         raise HTTPException(503, detail="ClickHouse not configured")
 
     client = get_clickhouse_client()
+    from ...db import repository
+    repository._ensure_opportunity_columns(client)
 
     # Load opportunity
     opp_result = client.query(
         "SELECT id, scene_id, asset_id, category, object_label, timecode_start, timecode_end, "
         "screen_time_seconds, naturalness_score, brand_safety_score, complexity, "
-        "rights_status, estimated_value_usd, is_primary "
+        "rights_status, estimated_value_usd, is_primary, placement_zone, placement_notes "
         "FROM cineyield.placement_opportunities WHERE id = {opp_id:String} LIMIT 1",
         parameters={"opp_id": opportunity_id},
     )

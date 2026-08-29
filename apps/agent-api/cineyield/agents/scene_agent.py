@@ -62,6 +62,7 @@ Return a JSON object with EXACTLY this structure (no markdown, no explanation):
       "naturalness_score": <float 0-100>,
       "screen_time_estimate_seconds": <integer>,
       "complexity": "<low/medium/high — production complexity of this placement>",
+      "placement_zone": "<specific physical zone such as foreground table, passenger seat, wall shelf>",
       "notes": "<one sentence on why this placement works>"
     }
   ]
@@ -117,6 +118,7 @@ _SCENE_SCHEMA = {
                     "naturalness_score": {"type": "number"},
                     "screen_time_estimate_seconds": {"type": "integer"},
                     "complexity": {"type": "string"},
+                    "placement_zone": {"type": "string"},
                     "notes": {"type": "string"},
                 },
                 "required": ["object_label", "category", "naturalness_score", "screen_time_estimate_seconds"],
@@ -417,6 +419,8 @@ def _build_opportunities(data: dict[str, Any], scene_id: str, asset_id: str) -> 
                 rights_status="clear",  # type: ignore[arg-type]
                 estimated_value_usd=_estimate_value(naturalness, screen_time),
                 is_primary=(i == 1),
+                placement_zone=opp.get("placement_zone", "Natural prop position"),
+                placement_notes=opp.get("notes", ""),
             )
         )
     return opps

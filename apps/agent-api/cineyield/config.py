@@ -27,6 +27,14 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-2.0-flash"
     google_api_key: str = ""
 
+    # Generative media. Nano Banana 2 is global-only on Vertex AI; Veo 3.1
+    # runs in us-central1. Keeping these separate from GEMINI_MODEL lets the
+    # analysis model evolve without silently changing an approved media flow.
+    nano_banana_model: str = "gemini-3.1-flash-image"
+    nano_banana_region: str = "global"
+    veo_model: str = "veo-3.1-generate-001"
+    veo_region: str = "us-central1"
+
     # Google Cloud Storage
     gcs_bucket_name: str = ""
 

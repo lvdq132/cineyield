@@ -1,6 +1,7 @@
 """ClickHouse data access — clean boundary, no raw SQL in agents."""
 from __future__ import annotations
 
+import json
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -64,6 +65,11 @@ def apply_sql_file(path: str) -> None:
 # Content assets
 # ─────────────────────────────────────────────────────────────
 
+def _normalize_content_asset(row: dict[str, Any]) -> dict[str, Any]:
+    """Map the safe ClickHouse aggregate alias back to the API field name."""
+    row["updated_at"] = row.pop("latest_updated_at")
+    return row
+
 def list_content_assets() -> list[dict[str, Any]]:
     client = get_clickhouse_client()
     result = client.query(
@@ -73,26 +79,38 @@ def list_content_assets() -> list[dict[str, Any]]:
         # Tomorrow" and "Frame by Frame"), silently contradicting the
         # runbook a judge is following. multiIf pins horizons first and
         # falls back to title for everything else.
-        "SELECT id, title, subtitle, format, status, scene_count, "
-        "opportunity_count, estimated_value_usd, updated_at "
-        "FROM cineyield.content_assets "
+        "SELECT id, argMax(title, updated_at) AS title, "
+        "argMax(subtitle, updated_at) AS subtitle, "
+        "argMax(format, updated_at) AS format, argMax(status, updated_at) AS status, "
+        "argMax(scene_count, updated_at) AS scene_count, "
+        "argMax(opportunity_count, updated_at) AS opportunity_count, "
+        "argMax(estimated_value_usd, updated_at) AS estimated_value_usd, "
+        "max(updated_at) AS latest_updated_at FROM cineyield.content_assets GROUP BY id "
         "ORDER BY multiIf(id = 'horizons', 0, 1), title"
     )
-    return [dict(zip(result.column_names, row)) for row in result.result_rows]
+    return [
+        _normalize_content_asset(dict(zip(result.column_names, row)))
+        for row in result.result_rows
+    ]
 
 
 def get_content_asset(asset_id: str) -> dict[str, Any] | None:
     client = get_clickhouse_client()
     result = client.query(
-        "SELECT id, title, subtitle, format, status, scene_count, "
-        "opportunity_count, estimated_value_usd, updated_at "
-        "FROM cineyield.content_assets WHERE id = {asset_id:String} LIMIT 1",
+        "SELECT id, argMax(title, updated_at) AS title, "
+        "argMax(subtitle, updated_at) AS subtitle, "
+        "argMax(format, updated_at) AS format, argMax(status, updated_at) AS status, "
+        "argMax(scene_count, updated_at) AS scene_count, "
+        "argMax(opportunity_count, updated_at) AS opportunity_count, "
+        "argMax(estimated_value_usd, updated_at) AS estimated_value_usd, "
+        "max(updated_at) AS latest_updated_at FROM cineyield.content_assets "
+        "WHERE id = {asset_id:String} GROUP BY id LIMIT 1",
         parameters={"asset_id": asset_id},
     )
     rows = result.result_rows
     if not rows:
         return None
-    return dict(zip(result.column_names, rows[0]))
+    return _normalize_content_asset(dict(zip(result.column_names, rows[0])))
 
 
 def get_scenes_for_asset(asset_id: str) -> list[dict[str, Any]]:
@@ -127,15 +145,19 @@ def get_scene(scene_id: str) -> dict[str, Any] | None:
     rows = result.result_rows
     if not rows:
         return None
-    return dict(zip(result.column_names, rows[0]))
+    scene = dict(zip(result.column_names, rows[0]))
+    scene["detected_objects"] = get_detected_objects(scene_id)
+    scene["media"] = get_scene_media(scene_id)
+    return scene
 
 
 def get_scene_opportunities(scene_id: str) -> list[dict[str, Any]]:
     client = get_clickhouse_client()
+    _ensure_opportunity_columns(client)
     result = client.query(
         "SELECT id, scene_id, asset_id, category, object_label, timecode_start, timecode_end, "
         "screen_time_seconds, naturalness_score, brand_safety_score, complexity, "
-        "rights_status, estimated_value_usd, is_primary "
+        "rights_status, estimated_value_usd, is_primary, placement_zone, placement_notes "
         "FROM cineyield.placement_opportunities WHERE scene_id = {scene_id:String} "
         "ORDER BY is_primary DESC, naturalness_score DESC",
         parameters={"scene_id": scene_id},
@@ -275,11 +297,148 @@ def upsert_scene(scene: dict[str, Any]) -> None:
     logger.info("Persisted scene %s to ClickHouse", scene["scene_id"])
 
 
+def upsert_detected_objects(
+    scene_id: str,
+    asset_id: str,
+    objects: list[dict[str, Any]],
+) -> None:
+    """Persist Gemini object detections so the analysis UI is scene-grounded."""
+    if not objects:
+        return
+    client = get_clickhouse_client()
+    client.command(
+        "ALTER TABLE cineyield.detected_objects DELETE WHERE scene_id = {scene_id:String} "
+        "SETTINGS mutations_sync = 1",
+        parameters={"scene_id": scene_id},
+    )
+    rows = [[
+        scene_id,
+        asset_id,
+        str(obj.get("label") or "Object"),
+        str(obj.get("category") or "Other"),
+        float(obj.get("confidence") or 0),
+        bool(obj.get("is_primary", False)),
+        obj.get("timecode_start"),
+        obj.get("timecode_end"),
+    ] for obj in objects]
+    client.insert(
+        "cineyield.detected_objects",
+        rows,
+        column_names=[
+            "scene_id", "asset_id", "label", "category", "confidence",
+            "is_primary", "timecode_start", "timecode_end",
+        ],
+    )
+
+
+def get_detected_objects(scene_id: str) -> list[dict[str, Any]]:
+    client = get_clickhouse_client()
+    result = client.query(
+        "SELECT label, category, confidence, is_primary, timecode_start, timecode_end "
+        "FROM cineyield.detected_objects WHERE scene_id = {scene_id:String} "
+        "ORDER BY is_primary DESC, confidence DESC",
+        parameters={"scene_id": scene_id},
+    )
+    return [dict(zip(result.column_names, row)) for row in result.result_rows]
+
+
+def _ensure_scene_media_table(client: Any) -> None:
+    client.command(
+        "CREATE TABLE IF NOT EXISTS cineyield.scene_media ("
+        "scene_id String, asset_id String, source_video_uri String, "
+        "segment_video_uri String, frame_uri String, source_mime_type String, "
+        "frame_time_seconds Float32, segment_start_seconds Float32, "
+        "segment_duration_seconds Float32, source_duration_seconds Float32, "
+        "updated_at DateTime64(3) DEFAULT now64(3)"
+        ") ENGINE = ReplacingMergeTree(updated_at) ORDER BY scene_id"
+    )
+
+
+def upsert_scene_media(scene_id: str, asset_id: str, media: dict[str, Any]) -> None:
+    client = get_clickhouse_client()
+    _ensure_scene_media_table(client)
+    client.insert(
+        "cineyield.scene_media",
+        [[
+            scene_id,
+            asset_id,
+            media.get("source_video_uri", ""),
+            media.get("segment_video_uri", ""),
+            media.get("frame_uri", ""),
+            media.get("source_mime_type", "video/mp4"),
+            float(media.get("frame_time_seconds") or 0),
+            float(media.get("segment_start_seconds") or 0),
+            float(media.get("segment_duration_seconds") or 0),
+            float(media.get("source_duration_seconds") or 0),
+            _now(),
+        ]],
+        column_names=[
+            "scene_id", "asset_id", "source_video_uri", "segment_video_uri",
+            "frame_uri", "source_mime_type", "frame_time_seconds",
+            "segment_start_seconds", "segment_duration_seconds",
+            "source_duration_seconds", "updated_at",
+        ],
+    )
+
+
+def get_scene_media(scene_id: str) -> dict[str, Any] | None:
+    client = get_clickhouse_client()
+    _ensure_scene_media_table(client)
+    result = client.query(
+        "SELECT argMax(asset_id, updated_at) AS asset_id, "
+        "argMax(source_video_uri, updated_at) AS source_video_uri, "
+        "argMax(segment_video_uri, updated_at) AS segment_video_uri, "
+        "argMax(frame_uri, updated_at) AS frame_uri, "
+        "argMax(source_mime_type, updated_at) AS source_mime_type, "
+        "argMax(frame_time_seconds, updated_at) AS frame_time_seconds, "
+        "argMax(segment_start_seconds, updated_at) AS segment_start_seconds, "
+        "argMax(segment_duration_seconds, updated_at) AS segment_duration_seconds, "
+        "argMax(source_duration_seconds, updated_at) AS source_duration_seconds "
+        "FROM cineyield.scene_media WHERE scene_id = {scene_id:String} GROUP BY scene_id",
+        parameters={"scene_id": scene_id},
+    )
+    if not result.result_rows:
+        return None
+    return dict(zip(result.column_names, result.result_rows[0]))
+
+
+def upsert_uploaded_content_asset(
+    *,
+    asset_id: str,
+    title: str,
+    gcs_uri: str,
+    scene_count: int,
+    opportunity_count: int,
+) -> None:
+    """Make an uploaded cut visible in the live studio library."""
+    client = get_clickhouse_client()
+    client.insert(
+        "cineyield.content_assets",
+        [[
+            asset_id,
+            title,
+            "Uploaded cut",
+            "film",
+            "analyzed",
+            max(1, scene_count),
+            max(0, opportunity_count),
+            None,
+            gcs_uri,
+            _now(),
+        ]],
+        column_names=[
+            "id", "title", "subtitle", "format", "status", "scene_count",
+            "opportunity_count", "estimated_value_usd", "gcs_uri", "updated_at",
+        ],
+    )
+
+
 def upsert_opportunities(opportunities: list[dict[str, Any]]) -> None:
     """Persist PlacementOpportunity dicts to ClickHouse."""
     if not opportunities:
         return
     client = get_clickhouse_client()
+    _ensure_opportunity_columns(client)
     rows = [
         [
             opp["id"],
@@ -296,6 +455,8 @@ def upsert_opportunities(opportunities: list[dict[str, Any]]) -> None:
             opp.get("rights_status", "clear"),
             float(opp.get("estimated_value_usd") or 0.0),
             bool(opp.get("is_primary", False)),
+            opp.get("placement_zone", ""),
+            opp.get("placement_notes", ""),
         ]
         for opp in opportunities
     ]
@@ -307,9 +468,18 @@ def upsert_opportunities(opportunities: list[dict[str, Any]]) -> None:
             "timecode_start", "timecode_end", "screen_time_seconds",
             "naturalness_score", "brand_safety_score", "complexity",
             "rights_status", "estimated_value_usd", "is_primary",
+            "placement_zone", "placement_notes",
         ],
     )
     logger.info("Persisted %d opportunities to ClickHouse", len(rows))
+
+
+def _ensure_opportunity_columns(client: Any) -> None:
+    for ddl in [
+        "ALTER TABLE cineyield.placement_opportunities ADD COLUMN IF NOT EXISTS placement_zone String DEFAULT ''",
+        "ALTER TABLE cineyield.placement_opportunities ADD COLUMN IF NOT EXISTS placement_notes String DEFAULT ''",
+    ]:
+        client.command(ddl)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -374,7 +544,7 @@ def approve_proposal(proposal_id: str) -> None:
     client = get_clickhouse_client()
     client.command(
         "ALTER TABLE cineyield.proposals UPDATE workflow_state = 'APPROVED' "
-        "WHERE id = {proposal_id:String}",
+        "WHERE id = {proposal_id:String} SETTINGS mutations_sync = 1",
         parameters={"proposal_id": proposal_id},
     )
     logger.info("Proposal %s approved (workflow_state=APPROVED)", proposal_id)
@@ -484,6 +654,179 @@ def get_proposal(proposal_id: str) -> dict[str, Any] | None:
         proposal["composed_at"] = proposal["composed_at"].isoformat()
 
     return proposal
+
+
+# ─────────────────────────────────────────────────────────────
+# Branded media generations (versioned, auditable state)
+# ─────────────────────────────────────────────────────────────
+
+def _ensure_generation_jobs_table(client: Any) -> None:
+    client.command(
+        "CREATE TABLE IF NOT EXISTS cineyield.generation_jobs ("
+        "id String, proposal_id String, scene_id String, opportunity_id String, "
+        "campaign_id String, kind LowCardinality(String), status LowCardinality(String), "
+        "decision LowCardinality(String), model String, prompt String, "
+        "placement_instructions String, creative_guardrails String, "
+        "source_video_uri String, source_frame_uri String, output_uri String, "
+        "operation_name String, generation_number UInt16, error String, "
+        "created_at DateTime64(3), updated_at DateTime64(3)"
+        ") ENGINE = ReplacingMergeTree(updated_at) ORDER BY id"
+    )
+
+
+def write_generation_job(job: dict[str, Any]) -> str:
+    client = get_clickhouse_client()
+    _ensure_generation_jobs_table(client)
+    job_id = str(job.get("id") or f"gen_{uuid.uuid4().hex[:16]}")
+    created = job.get("created_at")
+    if isinstance(created, str):
+        created_dt = _parse_dt(created)
+    elif isinstance(created, datetime):
+        created_dt = created.replace(tzinfo=None)
+    else:
+        created_dt = _now()
+    guardrails = job.get("creative_guardrails", [])
+    if not isinstance(guardrails, str):
+        guardrails = json.dumps(guardrails, ensure_ascii=False)
+    client.insert(
+        "cineyield.generation_jobs",
+        [[
+            job_id,
+            job.get("proposal_id", ""),
+            job.get("scene_id", ""),
+            job.get("opportunity_id", ""),
+            job.get("campaign_id", ""),
+            job.get("kind", "IMAGE"),
+            job.get("status", "QUEUED"),
+            job.get("decision", "PENDING"),
+            job.get("model", ""),
+            job.get("prompt", ""),
+            job.get("placement_instructions", ""),
+            guardrails,
+            job.get("source_video_uri", ""),
+            job.get("source_frame_uri", ""),
+            job.get("output_uri", ""),
+            job.get("operation_name", ""),
+            int(job.get("generation_number") or 1),
+            job.get("error", ""),
+            created_dt,
+            _now(),
+        ]],
+        column_names=[
+            "id", "proposal_id", "scene_id", "opportunity_id", "campaign_id",
+            "kind", "status", "decision", "model", "prompt",
+            "placement_instructions", "creative_guardrails", "source_video_uri",
+            "source_frame_uri", "output_uri", "operation_name",
+            "generation_number", "error", "created_at", "updated_at",
+        ],
+    )
+    return job_id
+
+
+def get_generation_job(job_id: str) -> dict[str, Any] | None:
+    client = get_clickhouse_client()
+    _ensure_generation_jobs_table(client)
+    result = client.query(
+        "SELECT id, argMax(proposal_id, updated_at) AS proposal_id, "
+        "argMax(scene_id, updated_at) AS scene_id, "
+        "argMax(opportunity_id, updated_at) AS opportunity_id, "
+        "argMax(campaign_id, updated_at) AS campaign_id, "
+        "argMax(kind, updated_at) AS kind, argMax(status, updated_at) AS status, "
+        "argMax(decision, updated_at) AS decision, argMax(model, updated_at) AS model, "
+        "argMax(prompt, updated_at) AS prompt, "
+        "argMax(placement_instructions, updated_at) AS placement_instructions, "
+        "argMax(creative_guardrails, updated_at) AS creative_guardrails, "
+        "argMax(source_video_uri, updated_at) AS source_video_uri, "
+        "argMax(source_frame_uri, updated_at) AS source_frame_uri, "
+        "argMax(output_uri, updated_at) AS output_uri, "
+        "argMax(operation_name, updated_at) AS operation_name, "
+        "argMax(generation_number, updated_at) AS generation_number, "
+        "argMax(error, updated_at) AS error, min(created_at) AS created_at, "
+        "max(updated_at) AS latest_updated_at "
+        "FROM cineyield.generation_jobs WHERE id = {id:String} GROUP BY id",
+        parameters={"id": job_id},
+    )
+    if not result.result_rows:
+        return None
+    job = dict(zip(result.column_names, result.result_rows[0]))
+    # Do not alias max(updated_at) back to updated_at in the query. ClickHouse
+    # expands that alias inside the argMax expressions above and treats it as a
+    # nested aggregate. Normalize the safe query alias at the repository edge.
+    job["updated_at"] = job.pop("latest_updated_at")
+    try:
+        job["creative_guardrails"] = json.loads(job.get("creative_guardrails") or "[]")
+    except json.JSONDecodeError:
+        job["creative_guardrails"] = []
+    for key in ("created_at", "updated_at"):
+        if hasattr(job.get(key), "isoformat"):
+            job[key] = job[key].isoformat()
+    return job
+
+
+def get_latest_generation(
+    proposal_id: str,
+    *,
+    kind: str | None = None,
+    decision: str | None = None,
+) -> dict[str, Any] | None:
+    client = get_clickhouse_client()
+    _ensure_generation_jobs_table(client)
+    clauses: list[str] = []
+    params: dict[str, Any] = {"proposal_id": proposal_id}
+    if kind:
+        clauses.append("kind = {kind:String}")
+        params["kind"] = kind
+    if decision:
+        clauses.append("decision = {decision:String}")
+        params["decision"] = decision
+    outer_where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+    result = client.query(
+        "SELECT id FROM ("
+        "SELECT id, argMax(kind, updated_at) AS kind, "
+        "argMax(decision, updated_at) AS decision, max(updated_at) AS latest "
+        "FROM cineyield.generation_jobs WHERE proposal_id = {proposal_id:String} GROUP BY id"
+        ")" + outer_where + " ORDER BY latest DESC LIMIT 1",
+        parameters=params,
+    )
+    if not result.result_rows:
+        return None
+    return get_generation_job(str(result.result_rows[0][0]))
+
+
+def list_generation_jobs(proposal_id: str) -> list[dict[str, Any]]:
+    client = get_clickhouse_client()
+    _ensure_generation_jobs_table(client)
+    result = client.query(
+        "SELECT id, max(updated_at) AS latest FROM cineyield.generation_jobs "
+        "WHERE proposal_id = {proposal_id:String} GROUP BY id ORDER BY latest DESC",
+        parameters={"proposal_id": proposal_id},
+    )
+    return [job for row in result.result_rows if (job := get_generation_job(str(row[0]))) is not None]
+
+
+def get_generation_context(proposal_id: str) -> dict[str, Any] | None:
+    """Load the complete sponsor/scene/source context for media generation."""
+    client = get_clickhouse_client()
+    _ensure_proposal_columns(client)
+    result = client.query(
+        "SELECT p.id AS proposal_id, p.opportunity_id, p.campaign_id, "
+        "p.brand_name, p.campaign_name, p.placement_fee_usd, p.workflow_state, "
+        "p.brand_brief, o.scene_id, o.asset_id, o.category, o.object_label, "
+        "o.naturalness_score, o.screen_time_seconds, s.name AS scene_name, "
+        "s.summary AS scene_summary, s.mood, s.narrative_weight, "
+        "s.brand_safety_score, c.product_line "
+        "FROM cineyield.proposals p "
+        "INNER JOIN cineyield.placement_opportunities o ON o.id = p.opportunity_id "
+        "INNER JOIN cineyield.scenes s ON s.id = o.scene_id "
+        "INNER JOIN cineyield.brand_campaigns c ON c.id = p.campaign_id "
+        "WHERE p.id = {proposal_id:String} ORDER BY p.composed_at DESC LIMIT 1",
+        parameters={"proposal_id": proposal_id},
+    )
+    if not result.result_rows:
+        return None
+    context = dict(zip(result.column_names, result.result_rows[0]))
+    context["media"] = get_scene_media(str(context["scene_id"]))
+    return context
 
 
 # ─────────────────────────────────────────────────────────────

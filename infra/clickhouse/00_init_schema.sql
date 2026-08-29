@@ -80,6 +80,8 @@ CREATE TABLE IF NOT EXISTS cineyield.placement_opportunities
     rights_status        LowCardinality(String),  -- clear, review, restricted
     estimated_value_usd  Nullable(Float64),
     is_primary           Bool    DEFAULT false,
+    placement_zone       String  DEFAULT '',
+    placement_notes      String  DEFAULT '',
     created_at           DateTime DEFAULT now()
 )
 ENGINE = MergeTree()
@@ -158,6 +160,9 @@ CREATE TABLE IF NOT EXISTS cineyield.proposals
     campaign_name      String,
     placement_fee_usd  Float64,
     workflow_state     LowCardinality(String),
+    brand_brief        Nullable(String),
+    scene_title        Nullable(String),
+    scene_description  Nullable(String),
     composed_at        DateTime DEFAULT now()
 )
 ENGINE = MergeTree()
@@ -202,3 +207,52 @@ CREATE TABLE IF NOT EXISTS cineyield.revenue_events
 )
 ENGINE = MergeTree()
 ORDER BY (asset_id, occurred_at);
+
+-- ─────────────────────────────────────────────────────────────
+-- Private source media extracted from real uploads
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS cineyield.scene_media
+(
+    scene_id                 String,
+    asset_id                 String,
+    source_video_uri         String,
+    segment_video_uri        String,
+    frame_uri                String,
+    source_mime_type         String,
+    frame_time_seconds       Float32,
+    segment_start_seconds    Float32,
+    segment_duration_seconds Float32,
+    source_duration_seconds  Float32,
+    updated_at               DateTime64(3) DEFAULT now64(3)
+)
+ENGINE = ReplacingMergeTree(updated_at)
+ORDER BY scene_id;
+
+-- ─────────────────────────────────────────────────────────────
+-- Nano Banana / Veo generation and producer decisions
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS cineyield.generation_jobs
+(
+    id                     String,
+    proposal_id            String,
+    scene_id               String,
+    opportunity_id         String,
+    campaign_id            String,
+    kind                   LowCardinality(String),
+    status                 LowCardinality(String),
+    decision               LowCardinality(String),
+    model                  String,
+    prompt                 String,
+    placement_instructions String,
+    creative_guardrails    String,
+    source_video_uri       String,
+    source_frame_uri       String,
+    output_uri             String,
+    operation_name         String,
+    generation_number      UInt16,
+    error                  String,
+    created_at             DateTime64(3),
+    updated_at             DateTime64(3)
+)
+ENGINE = ReplacingMergeTree(updated_at)
+ORDER BY id;

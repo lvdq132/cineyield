@@ -1,165 +1,55 @@
-# CineYield Demo Runbook
+# CineYield Final Demo Runbook
 
-**Product that exists**: An agentic pipeline that analyses a video scene, matches brands via ClickHouse + MCP, checks rights, guards creative integrity with Gemini, and creates a persistent deal — all in ~35 seconds.
+**One-line story:** Upload a finished scene, understand its commercial context, find a compatible sponsor, approve the terms, preview the placement, and generate the branded replacement shot.
 
-**Starting URL**: `https://cineyield-web-pg7lg7ldma-uc.a.run.app`
+- App: `https://cineyield-web-pg7lg7ldma-uc.a.run.app`
+- API: `https://cineyield-api-pg7lg7ldma-uc.a.run.app`
+- Proven live scene: `scene_b2aee2273df6`
+- Proven live proposal: `prop_316889227e39`
 
----
+## Before recording
 
-## Pre-demo checklist (5 minutes before)
+1. Run the credentialed gates:
 
-```bash
-# Confirm production backend is healthy
-bash scripts/e2e-prod-smoke.sh https://cineyield-api-pg7lg7ldma-uc.a.run.app
+   ```bash
+   bash scripts/smoke-contest.sh https://cineyield-api-pg7lg7ldma-uc.a.run.app
+   bash scripts/e2e-prod-smoke.sh https://cineyield-api-pg7lg7ldma-uc.a.run.app
+   ```
 
-# Reset demo state so no approved deal is shown at start
-bash scripts/demo-reset.sh https://cineyield-api-pg7lg7ldma-uc.a.run.app
-```
+2. Open the Library, Scene, Marketplace, Deal, and Analytics pages once to warm the services.
+3. Keep the rooftop MP4 ready for upload. It must be a real MP4—not the old synthetic black fixture.
+4. Start from a fresh proposal when recording the approval controls. Generation can take longer than the edit; record the real progress state, then cut forward to the completed result.
 
-Confirm:
-- [ ] Analytics shows 0 approved deals (or reset confirmed)
-- [ ] Library page loads
-- [ ] Marketplace page loads with TOP MATCH visible
-- [ ] Engineering test video at hand: `apps/agent-api/tests/fixtures/test_video.mp4`
+## Three-minute shot list
 
----
+| Time | Screen and action | Voiceover |
+|---|---|---|
+| 0:00–0:12 | Library → **Analyze a Cut** → choose the rooftop MP4 | “Finished film contains valuable, unmonetized sponsor inventory. CineYield turns the scene itself into a commercial workflow.” |
+| 0:12–0:35 | Real upload progress and pipeline stages | “The cut is stored in Google Cloud, segmented into an exact source clip and frame, then Gemini reads the video. An ADK agent coordinates scene intelligence, sponsor discovery, rights, creative safety, and proposal creation.” |
+| 0:35–0:58 | Scene Analysis with the extracted frame, three detected props, safety/mood/narrative scores, and placement zones | “This is the frame extracted from that upload—not a stock placeholder. Gemini found the headphones, mug, and phone, understood the scene, and qualified where a placement could belong.” |
+| 0:58–1:18 | Open the top opportunity / Marketplace match | “The Market Agent queries live campaign inventory through the official ClickHouse MCP server. Deterministic scoring ranks the sponsor; Gemini never invents the commercial score.” |
+| 1:18–1:38 | Open proposal and approve it | “The producer reviews the sponsor brief, terms, rights, and guardrails. Approval persists in ClickHouse and unlocks production—no front-end-only state.” |
+| 1:38–2:05 | Generation Studio: exact Original / Nano Banana proposal comparison, then approve | “Nano Banana receives the source frame, selected sponsor, product, placement direction, and non-negotiable guardrails. It returns a clean, scene-preserving reference—not a box, cutout, or overlay.” |
+| 2:05–2:35 | Veo Original / Branded playable comparison | “Gemini re-reads the exact source segment for camera continuity. Veo animates the approved plate into the replacement shot, with regenerate, approve, and reject controls.” |
+| 2:35–2:50 | Approve the clip; show audit status and Analytics | “Every decision and generation revision is recorded. Approved revenue and agent traces update from ClickHouse.” |
+| 2:50–3:00 | Hold on final comparison | “CineYield is the revenue layer between a finished cut and a production-ready sponsor deal.” |
 
-## Click path (exact steps)
+## Non-negotiable proof in frame
 
-### Step 1 — Library (5 seconds)
+- The upload progress must be shown at least once.
+- The Scene Analysis image must visibly match the uploaded rooftop cut.
+- Show `Gemini`, `mcp-clickhouse`, `Nano Banana`, and `Veo` labels in their respective UI states.
+- Show the exact Original / Branded comparisons for both image and video.
+- Show one real producer decision persisting after refresh.
+- Never imply that Veo performs arbitrary source-video inpainting. Gemini reads the source segment for continuity; Veo 3.1 generates from the approved branded first frame under that continuity brief.
 
-1. Navigate to `https://cineyield-web-pg7lg7ldma-uc.a.run.app/library`
-2. **Show**: Scene catalog — multiple clips with mood/category metadata
-3. Say: *"CineYield indexes every scene in your library. Here's the commercial opportunity layer."*
+## Recovery
 
-### Step 2 — Analyze a Cut (35 seconds — the ADK moment)
+- Gemini/ADK analysis normally takes roughly one minute on a cold run. Leave the genuine progress state in the recording and edit out idle time.
+- Nano Banana normally takes 15–30 seconds. A failed aesthetic result is an opportunity to show **Regenerate placement**.
+- Veo is asynchronous and may take several minutes. Record the real rendering state, then cut to the completed job.
+- If a generation job fails, its error is persisted. Regenerate creates a new auditable revision rather than overwriting history.
 
-1. Click **Analyze a Cut** button (top-right of library)
-2. In the file picker, select `apps/agent-api/tests/fixtures/test_video.mp4`
-3. **Show**: "Analyzing cut…" overlay — progress bar advances as the pipeline runs
-4. Say: *"This is a real Google ADK pipeline. SceneAgent calls Gemini for video understanding, MarketAgent queries brand campaigns via the official mcp-clickhouse MCP server, then RightsAgent and Creative Guardian check the match is safe to close."*
-5. Wait ~35 seconds for navigation to `/scene/{id}`
+## Final verbal close
 
-**What judges should notice**: The pipeline takes 30–40 seconds because it's making real Gemini and ClickHouse calls, not fake animations.
-
-### Step 3 — Scene Intelligence (10 seconds)
-
-1. On the Scene page: note scene name, mood, brand safety score, placement opportunities
-2. Click the **opportunity card** to see ranked campaigns
-3. Say: *"Gemini read the video and returned structured scene intelligence — mood, narrative weight, brand safety. That's the input to the MarketAgent."*
-
-### Step 4 — Marketplace (10 seconds)
-
-1. Navigate to `/marketplace` (or click Marketplace in sidebar)
-2. **Show**: Status bar — "market-agent • mcp-clickhouse • 27 scanned • 1 ranked"
-3. **Show**: Score ring with the top campaign
-4. Say: *"The MarketAgent used the official ClickHouse MCP server via stdio transport to pull 27 live brand campaigns. Scoring is deterministic Python — no hallucination in the ranking."*
-
-**ClickHouse MCP moment for judges**: The "mcp-clickhouse" label in the status bar shows the real MCP integration. Agent latency (~1 300 ms) is in the agent trace.
-
-### Step 5 — Deal (10 seconds)
-
-1. Click **Open Deal** on the top match
-2. **Show**: Proposal — campaign name, estimated fee, workflow state `PRODUCER_REVIEW`
-3. Say: *"DealAgent composed a complete proposal with structured terms. It's in ClickHouse, ready for producer sign-off."*
-
-### Step 6 — Approve Placement (15 seconds — the persistence moment)
-
-1. Click **Approve Placement**
-2. Wait ~2 seconds
-3. **Show**: APPROVED badge
-4. **Reload the page** (Command+R / F5)
-5. **Show**: APPROVED badge persists
-6. Say: *"Approval is a `workflow_state` mutation in ClickHouse — not front-end state. It survives a full refresh."*
-
-### Step 7 — Analytics (5 seconds)
-
-1. Navigate to `/analytics`
-2. **Show**: Approved deals count, total revenue in USD
-3. Say: *"All analytics come straight from ClickHouse aggregation queries — every approval lands here in real time."*
-
-### Step 8 — Agent Trace (optional, for technical judges)
-
-1. Open: `https://cineyield-api-pg7lg7ldma-uc.a.run.app/api/v1/agents/events?limit=6`
-2. **Show**: JSON with agent names, tool names, real latencies
-3. Say: *"Every agent records its execution to ClickHouse — tool used, latency, summary. This is the full audit trail."*
-
----
-
-## Expected outputs
-
-| Step | Expected |
-|------|----------|
-| Library | Scenes with genre/mood tags |
-| Upload | `analyzing cut` overlay, then navigation to `/scene/{id}` |
-| Pipeline job | `status: completed`, `adk_used: true`, `pipeline_version: adk_llmagent_v1` |
-| Marketplace | Status bar: `market-agent • mcp-clickhouse • 27 scanned` |
-| Deal | `workflow_state: PRODUCER_REVIEW`, campaign name, fee |
-| Approve | `workflow_state: APPROVED`, persists on reload |
-| Analytics | `approved_deals ≥ 1`, `approved_revenue_usd > 0` |
-| Agent trace | 6 events: scene_agent, market_agent, rights_agent, creative_guardian, deal_agent, producer |
-
----
-
-## Recovery procedures
-
-### Pipeline taking more than 60 seconds
-
-Gemini Vertex AI cold-start can add 10–20s on first call. Wait up to 90s. If still pending, check:
-
-```bash
-# Backend logs
-gcloud run services logs read cineyield-api \
-  --project=project-01cc020f-432a-4192-bc0 \
-  --region=us-central1 --limit=50
-```
-
-### "Analyzing cut" overlay disappears without navigation
-
-The job may have failed. Check:
-
-```bash
-curl https://cineyield-api-pg7lg7ldma-uc.a.run.app/api/v1/ingest/status/JOB_ID_FROM_URL
-```
-
-### ClickHouse slow or timing out
-
-mcp-clickhouse connects to ClickHouse Cloud (external). On slow networks the first call may take 3–5s. Subsequent calls are faster. The demo is unaffected by a single slow query.
-
-### Marketplace shows no match
-
-Run demo reset then reupload. The canonical opportunity `opp_horizons_rooftop_001` always has matches against the 27 seeded campaigns.
-
----
-
-## Reset command
-
-```bash
-# Production reset (before each demo rehearsal)
-bash scripts/demo-reset.sh https://cineyield-api-pg7lg7ldma-uc.a.run.app
-
-# Or via API directly
-curl -X POST https://cineyield-api-pg7lg7ldma-uc.a.run.app/api/v1/demo/reset \
-  -H "Content-Type: application/json" \
-  -d '{"opportunity_id": "opp_horizons_rooftop_001"}'
-```
-
----
-
-## Timings for 3-minute demo
-
-| Segment | Time |
-|---------|------|
-| Library intro | 0:00–0:15 |
-| Analyze a Cut (upload + wait) | 0:15–1:00 |
-| Scene Intelligence | 1:00–1:20 |
-| Marketplace + MCP callout | 1:20–1:40 |
-| Deal detail | 1:40–1:55 |
-| Approve + reload | 1:55–2:15 |
-| Analytics | 2:15–2:30 |
-| Agent trace (optional) | 2:30–2:45 |
-| Wrap / summary | 2:45–3:00 |
-
----
-
-*Voiceover script: to be written after production E2E confirmed.*
+“ChatGPT can describe a scene. CineYield closes the loop: it understands the actual cut, queries live sponsor demand, enforces rights and creative constraints, records the commercial approval, and generates production-ready branded media under producer control.”

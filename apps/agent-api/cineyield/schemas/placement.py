@@ -30,6 +30,8 @@ class PlacementOpportunity(BaseModel):
     rights_status: RightsStatus
     estimated_value_usd: float | None = None
     is_primary: bool = False
+    placement_zone: str = ""
+    placement_notes: str = ""
 
 
 class TerritoryRights(BaseModel):

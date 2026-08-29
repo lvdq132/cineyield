@@ -26,7 +26,7 @@ Status legend: `[x]` done · `[ ]` requires a human action (noted).
   - `adk_used: true` present in every pipeline job response
   - `pipeline_version: adk_llmagent_v1` recorded in ClickHouse
 
-## Real integration proof points (verified 2026-08-23)
+## Real integration proof points (verified 2026-08-29)
 
 - [x] `GET {backend}/api/v1/pipeline/status` → `gemini: true, clickhouse: true`
 - [x] `GET {backend}/api/v1/agents/events?limit=5` → real ClickHouse rows with latency
@@ -34,11 +34,15 @@ Status legend: `[x]` done · `[ ]` requires a human action (noted).
 - [x] Upload engineering MP4 → job completes with `adk_used: true`,
       `pipeline_version: adk_llmagent_v1` *(prod browser E2E, 8/8)*
 - [x] Approve deal → `workflow_state: APPROVED` persists across page refresh *(prod E2E)*
+- [x] Real upload → isolated MP4 segment + exact extracted frame persisted in GCS
+- [x] Scene page → exact extracted frame, real detections, placement zones and scores
+- [x] Nano Banana 2 → real approved branded frame with Original / Proposal comparison
+- [x] Veo 3.1 → real asynchronous branded replacement job with approval controls
 - [x] Contest gate `bash scripts/smoke-contest.sh <backend>` → **12 passed / 0 failed**
 
 ## Verification results (2026-08-23)
 
-- [x] Backend pytest — **174 passed**
+- [x] Backend pytest — **186 passed**, including credentialed MCP reachability
 - [x] Backend `ruff` — clean · `mypy` — clean (41 files)
 - [x] Frontend ESLint — clean · `tsc --noEmit` — clean · `next build` — clean
 - [x] Production smoke (`e2e-prod-smoke.sh`) — **6/6**
@@ -51,15 +55,19 @@ Status legend: `[x]` done · `[ ]` requires a human action (noted).
 - [ ] Library page (catalog of scenes)
 - [ ] Upload flow — "Analyzing cut" overlay with progress
 - [ ] Scene Intelligence — scene name, mood, brand safety score, opportunities
+- [ ] Scene Intelligence — exact source frame, detected props, placement zones
 - [ ] Marketplace — MarketAgent status bar showing "mcp-clickhouse" + score ring
 - [ ] Deal detail — proposal with campaign, fee, PRODUCER_REVIEW state
 - [ ] Approved deal — APPROVED badge persistent after refresh
+- [ ] Nano Banana — Original / Proposal comparison with approved reference
+- [ ] Veo — playable Original / Branded replacement comparison
 - [ ] Analytics — approved revenue total
 - [ ] Backend `/docs` OpenAPI
 
 ## Technical details for Devpost
 
-- **Built with**: Python 3.12, FastAPI, Google ADK, Gemini 2.5 Flash (Vertex AI),
+- **Built with**: Python 3.12, FastAPI, Google ADK, Gemini 2.5 Flash, Nano Banana 2
+  (`gemini-3.1-flash-image`), Veo 3.1 (`veo-3.1-generate-001`) on Vertex AI,
   Next.js 15, React 19, ClickHouse Cloud, official mcp-clickhouse MCP server, Google
   Cloud Run.
 - **Open-source libraries**: google-adk, google-genai, mcp, mcp-clickhouse,

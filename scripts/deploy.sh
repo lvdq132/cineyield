@@ -20,6 +20,8 @@ GCS_BUCKET="cineyield-videos-dev"
 SECRET_NAME="cineyield-clickhouse-password"
 CLICKHOUSE_HOST="ebx4kt121f.ca-central-1.aws.clickhouse.cloud"
 GEMINI_MODEL="gemini-2.5-flash"
+NANO_BANANA_MODEL="gemini-3.1-flash-image"
+VEO_MODEL="veo-3.1-generate-001"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -143,6 +145,10 @@ gcloud run deploy "$BACKEND_SERVICE" \
 @CLICKHOUSE_SEND_RECEIVE_TIMEOUT=60\
 @CLICKHOUSE_MCP_AUTH_DISABLED=true\
 @GEMINI_MODEL=${GEMINI_MODEL}\
+@NANO_BANANA_MODEL=${NANO_BANANA_MODEL}\
+@NANO_BANANA_REGION=global\
+@VEO_MODEL=${VEO_MODEL}\
+@VEO_REGION=${REGION}\
 @CORS_ORIGINS=http://localhost:3000,http://localhost:8000" \
   --set-secrets="CLICKHOUSE_PASSWORD=${SECRET_NAME}:latest" \
   --quiet

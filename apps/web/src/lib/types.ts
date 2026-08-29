@@ -70,6 +70,10 @@ export interface Scene {
   playerGradient: string;
   detectedObjects: DetectedObject[];
   detectionBoxes: DetectionBox[];
+  frameUrl?: string;
+  videoUrl?: string;
+  frameTimeSeconds?: number;
+  sourceDurationSeconds?: number;
 }
 
 export type RightsStatus = "Clear" | "Review";
@@ -88,6 +92,8 @@ export interface Opportunity {
   rights: RightsStatus;
   estimatedValue: string;
   primary?: boolean;
+  placementZone?: string;
+  placementNotes?: string;
 }
 
 export interface OpportunityMetric {

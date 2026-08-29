@@ -7,6 +7,12 @@
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
 
+export function resolveApiUrl(path?: string | null): string | null {
+  if (!path) return null;
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
 // ─── Low-level fetch ──────────────────────────────────────────────────────────
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
@@ -104,6 +110,15 @@ export interface ApiScene {
   detected_objects: ApiDetectedObject[];
   gemini_model_used?: string;
   analyzed_at?: string;
+  media?: {
+    frame_url?: string;
+    segment_url?: string;
+    source_url?: string;
+    frame_time_seconds?: number;
+    segment_start_seconds?: number;
+    segment_duration_seconds?: number;
+    source_duration_seconds?: number;
+  };
 }
 
 export interface SceneOpportunitiesResponse {
@@ -264,7 +279,11 @@ export interface JobStatusResponse {
   submitted_at: string;
   completed_at?: string;
   error?: string;
-  scene_analysis?: ApiScene;
+  scene_analysis?: {
+    scene_id?: string;
+    asset_id?: string;
+    [key: string]: unknown;
+  };
 }
 
 export interface SupportedFormatsResponse {
@@ -295,6 +314,75 @@ export const ingest = {
     apiFetch<JobStatusResponse>(`/api/v1/ingest/status/${jobId}`),
 
   formats: () => apiFetch<SupportedFormatsResponse>("/api/v1/ingest/formats"),
+};
+
+// ─── Branded media generation ───────────────────────────────────────────────
+
+export type GenerationKind = "IMAGE" | "VIDEO";
+export type GenerationStatus = "PROCESSING" | "COMPLETED" | "FAILED";
+export type GenerationDecision = "PENDING" | "APPROVED" | "REJECTED";
+
+export interface ApiGenerationJob {
+  id: string;
+  proposal_id: string;
+  scene_id: string;
+  kind: GenerationKind;
+  status: GenerationStatus;
+  decision: GenerationDecision;
+  model: string;
+  placement_instructions: string;
+  creative_guardrails: string[];
+  generation_number: number;
+  error?: string;
+  media_url?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface GenerationWorkflowResponse {
+  proposal_id: string;
+  deal_approved: boolean;
+  scene_id: string;
+  sponsor: string;
+  product: string;
+  original_frame_url: string;
+  original_video_url: string;
+  creative_guardrails: string[];
+  latest_image: ApiGenerationJob | null;
+  approved_image: ApiGenerationJob | null;
+  latest_video: ApiGenerationJob | null;
+  video_unlocked: boolean;
+}
+
+export const generations = {
+  workflow: (proposalId: string) =>
+    apiFetch<GenerationWorkflowResponse>(
+      `/api/v1/generations/proposals/${encodeURIComponent(proposalId)}`,
+      { cache: "no-store" },
+    ),
+  createImage: (proposalId: string, placementInstructions = "") =>
+    apiFetch<ApiGenerationJob>(
+      `/api/v1/generations/proposals/${encodeURIComponent(proposalId)}/image`,
+      {
+        method: "POST",
+        body: JSON.stringify({ placement_instructions: placementInstructions }),
+      },
+    ),
+  createVideo: (proposalId: string) =>
+    apiFetch<ApiGenerationJob>(
+      `/api/v1/generations/proposals/${encodeURIComponent(proposalId)}/video`,
+      { method: "POST", body: JSON.stringify({}) },
+    ),
+  getJob: (jobId: string) =>
+    apiFetch<ApiGenerationJob>(`/api/v1/generations/jobs/${encodeURIComponent(jobId)}`),
+  decide: (jobId: string, decision: "approve" | "reject", note = "") =>
+    apiFetch<ApiGenerationJob>(
+      `/api/v1/generations/jobs/${encodeURIComponent(jobId)}/decision`,
+      {
+        method: "POST",
+        body: JSON.stringify({ decision, note }),
+      },
+    ),
 };
 
 // ─── Analytics ───────────────────────────────────────────────────────────────

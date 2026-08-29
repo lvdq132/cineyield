@@ -99,7 +99,14 @@ async def upload_video(
     }
 
     if settings.gemini_configured:
-        background_tasks.add_task(_run_pipeline_job, job_id, data, content_type, asset_id)
+        background_tasks.add_task(
+            _run_pipeline_job,
+            job_id,
+            data,
+            content_type,
+            asset_id,
+            file.filename or "upload.mp4",
+        )
         status = "queued"
         message = "Full ADK pipeline queued. Poll /status/{job_id} for results."
     elif settings.is_contest_mode:
@@ -156,7 +163,13 @@ async def list_supported_formats() -> dict:
     }
 
 
-async def _run_pipeline_job(job_id: str, data: bytes, mime: str, asset_id: str) -> None:
+async def _run_pipeline_job(
+    job_id: str,
+    data: bytes,
+    mime: str,
+    asset_id: str,
+    filename: str,
+) -> None:
     """Background task: run the full ADK pipeline on uploaded video bytes.
 
     Runs: SceneAgent → MarketAgent → RightsAgent → CreativeGuardian → DealAgent
@@ -175,9 +188,20 @@ async def _run_pipeline_job(job_id: str, data: bytes, mime: str, asset_id: str) 
             tmp_path = tmp.name
 
         from ...agents.pipeline import run_pipeline
+        from ...services.media_processor import prepare_scene_media
+
+        # Preserve the source, isolate the exact replacement segment, and
+        # extract the analysis frame before Gemini runs. A failure here is a
+        # real pipeline failure in contest mode — never replace it with stock.
+        prepared = prepare_scene_media(
+            tmp_path,
+            asset_id=asset_id,
+            source_mime_type=mime,
+        )
 
         result = await run_pipeline(
             video_input={
+                "gcs_uri": prepared.source_video_uri,
                 "video_path": tmp_path,
                 "asset_id": asset_id,
             },
@@ -192,6 +216,35 @@ async def _run_pipeline_job(job_id: str, data: bytes, mime: str, asset_id: str) 
         primary_opp = next(
             (o for o in opportunities if o.get("is_primary")),
             opportunities[0] if opportunities else {},
+        )
+
+        from ...db import repository
+
+        repository.upsert_scene_media(
+            scene_id,
+            asset_id,
+            {
+                "source_video_uri": prepared.source_video_uri,
+                "segment_video_uri": prepared.segment_video_uri,
+                "frame_uri": prepared.frame_uri,
+                "source_mime_type": prepared.source_mime_type,
+                "frame_time_seconds": prepared.frame_time_seconds,
+                "segment_start_seconds": prepared.segment_start_seconds,
+                "segment_duration_seconds": prepared.segment_duration_seconds,
+                "source_duration_seconds": prepared.source_duration_seconds,
+            },
+        )
+        repository.upsert_detected_objects(
+            scene_id,
+            asset_id,
+            scene.get("detected_objects") or [],
+        )
+        repository.upsert_uploaded_content_asset(
+            asset_id=asset_id,
+            title=Path(filename).stem.replace("_", " ").replace("-", " ").title(),
+            gcs_uri=prepared.source_video_uri,
+            scene_count=1,
+            opportunity_count=len(opportunities),
         )
 
         _jobs[job_id]["status"] = "completed"
@@ -211,6 +264,11 @@ async def _run_pipeline_job(job_id: str, data: bytes, mime: str, asset_id: str) 
             "pipeline_version": result.get("pipeline_version"),
             "adk_used": result.get("adk_used", False),
             "total_latency_ms": result.get("total_latency_ms"),
+            "media": {
+                "frame_time_seconds": prepared.frame_time_seconds,
+                "segment_start_seconds": prepared.segment_start_seconds,
+                "segment_duration_seconds": prepared.segment_duration_seconds,
+            },
         }
 
     except Exception as exc:

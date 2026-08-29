@@ -5,6 +5,7 @@ import { getOpportunitiesForScene } from "@/data/opportunities";
 import type { Complexity, Opportunity, RightsStatus, Scene } from "@/lib/types";
 import { IS_CONTEST_MODE as CONTEST_MODE } from "@/lib/contest-mode";
 import { dataSourceFor } from "@/lib/data-source";
+import { resolveApiUrl } from "@/lib/api-client";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
 
@@ -27,6 +28,8 @@ interface ApiOpportunityRow {
   rights_status?: string;
   estimated_value_usd?: number;
   is_primary?: boolean;
+  placement_zone?: string;
+  placement_notes?: string;
 }
 
 /**
@@ -80,6 +83,8 @@ function apiOpportunityToOpportunity(o: ApiOpportunityRow, sceneId: string): Opp
     rights: normaliseRights(o.rights_status),
     estimatedValue: est > 0 ? `$${Math.round(est).toLocaleString()}` : "TBD",
     primary: Boolean(o.is_primary),
+    placementZone: o.placement_zone ?? "",
+    placementNotes: o.placement_notes ?? "",
   };
 }
 
@@ -101,6 +106,12 @@ async function fetchSceneFromApi(id: string): Promise<ApiSceneResult | null> {
       return null;
     }
     const s = await sceneRes.json() as Record<string, unknown>;
+    const media = (s.media ?? null) as {
+      frame_url?: string;
+      segment_url?: string;
+      frame_time_seconds?: number;
+      source_duration_seconds?: number;
+    } | null;
 
     let oppRows: ApiOpportunityRow[] | null = null;
     if (oppsRes.ok) {
@@ -123,13 +134,19 @@ async function fetchSceneFromApi(id: string): Promise<ApiSceneResult | null> {
       duration: "00:44",
       currentTime: "00:00",
       playerGradient: "radial-gradient(130% 100% at 50% 14%,#1e3a5f 0%,#15243a 44%,#0d0b0f 100%)",
-      detectedObjects: (oppRows ?? []).slice(0, 8).map((o) => ({
-        label: o.object_label ?? o.category ?? "",
-        category: o.category ?? "",
-        confidence: Math.round(o.naturalness_score ?? 80),
-        isPrimary: Boolean(o.is_primary),
-      })),
+      detectedObjects: ((s.detected_objects as Array<Record<string, unknown>> | undefined) ?? [])
+        .slice(0, 8)
+        .map((o) => ({
+          label: String(o.label ?? "Object"),
+          category: String(o.category ?? "Other"),
+          confidence: Math.round(Number(o.confidence ?? 0)),
+          isPrimary: Boolean(o.is_primary),
+        })),
       detectionBoxes: detectionBoxesFrom(oppRows ?? []),
+      frameUrl: resolveApiUrl(media?.frame_url) ?? undefined,
+      videoUrl: resolveApiUrl(media?.segment_url) ?? undefined,
+      frameTimeSeconds: media?.frame_time_seconds,
+      sourceDurationSeconds: media?.source_duration_seconds,
     };
 
     return {

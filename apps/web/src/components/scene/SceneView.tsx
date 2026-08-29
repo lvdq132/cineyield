@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
+import { Play, Image as ImageIcon } from "lucide-react";
 import type { Opportunity, Scene } from "@/lib/types";
 import {
   Breadcrumb,
@@ -51,18 +53,55 @@ export function SceneView({ scene, opportunities, dataSource = "live" }: SceneVi
 }
 
 function SceneVideoPanel({ scene }: { scene: Scene }) {
+  const [showVideo, setShowVideo] = useState(false);
+  const hasRealFrame = Boolean(scene.frameUrl);
+  const hasVideo = Boolean(scene.videoUrl);
   return (
     <div className="overflow-hidden border border-line bg-panel">
-      <div
-        className="relative aspect-video overflow-hidden"
-        style={{ backgroundImage: "linear-gradient(180deg,rgba(9,10,11,.1),rgba(9,10,11,.66)),url('/cineyield-rooftop-hero.jpg')", backgroundSize: "cover", backgroundPosition: "center" }}
-      >
+      <div className="relative aspect-video overflow-hidden bg-black">
+        {showVideo && hasVideo ? (
+          <video
+            className="h-full w-full object-contain"
+            src={scene.videoUrl}
+            poster={scene.frameUrl}
+            controls
+            autoPlay
+            playsInline
+          />
+        ) : hasRealFrame ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={scene.frameUrl}
+            alt={`Frame extracted from ${scene.name}`}
+            className="h-full w-full object-contain"
+          />
+        ) : (
+          <div
+            className="h-full w-full bg-cover bg-center"
+            style={{ backgroundImage: "linear-gradient(180deg,rgba(9,10,11,.1),rgba(9,10,11,.66)),url('/cineyield-rooftop-hero.jpg')" }}
+          />
+        )}
         <div className="absolute left-4 top-4 flex items-center gap-3 border border-[rgba(242,240,234,.24)] bg-[rgba(9,10,11,.76)] px-3 py-2">
           <span className="h-1.5 w-1.5 bg-gold" />
-          <span className="font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-ink">Gemini scene intelligence</span>
+          <span className="font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-ink">
+            {hasRealFrame ? "Extracted source frame · Gemini analyzed" : "Gemini scene intelligence"}
+          </span>
         </div>
-        <div className="absolute bottom-4 right-4 border border-[rgba(242,240,234,.24)] bg-[rgba(9,10,11,.76)] px-3 py-2 font-mono text-[10px] text-ink">
-          Frame {scene.currentTime}
+        <div className="absolute bottom-4 right-4 flex items-center gap-2">
+          {hasVideo && (
+            <button
+              type="button"
+              onClick={() => setShowVideo((value) => !value)}
+              className="inline-flex cursor-pointer items-center gap-2 border border-[rgba(242,240,234,.24)] bg-[rgba(9,10,11,.84)] px-3 py-2 text-[10px] font-semibold text-ink transition-colors hover:border-gold"
+            >
+              {showVideo ? <><ImageIcon size={13} /> View extracted frame</> : <><Play size={13} /> Play source segment</>}
+            </button>
+          )}
+          {!showVideo && (
+            <div className="border border-[rgba(242,240,234,.24)] bg-[rgba(9,10,11,.76)] px-3 py-2 font-mono text-[10px] text-ink">
+              Frame {scene.frameTimeSeconds != null ? `${scene.frameTimeSeconds.toFixed(2)}s` : scene.currentTime}
+            </div>
+          )}
         </div>
       </div>
 
@@ -192,6 +231,9 @@ function OpportunityTable({ opportunities }: { opportunities: Opportunity[] }) {
           <div className="flex flex-col">
             <span className="text-[13px] font-semibold text-ink">{opp.category}</span>
             <span className="text-[11px] text-ink3">{opp.object}</span>
+            {opp.placementZone && (
+              <span className="mt-1 text-[10px] text-gold">Zone · {opp.placementZone}</span>
+            )}
           </div>
           <div className="self-center font-mono text-xs text-ink2">{opp.timecode}</div>
           <div className="self-center font-mono text-xs text-ink2">{opp.screenTime}</div>

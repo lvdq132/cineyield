@@ -8,7 +8,7 @@ are included in this document.
 - **Backend**: https://cineyield-api-pg7lg7ldma-uc.a.run.app
 - **API docs (OpenAPI)**: https://cineyield-api-pg7lg7ldma-uc.a.run.app/docs
 
-Last verified: **2026-08-23** (see "Live verification snapshot" below).
+Last verified: **2026-08-29** (see "Live verification snapshot" below).
 
 ---
 
@@ -75,6 +75,8 @@ curl -s https://cineyield-api-pg7lg7ldma-uc.a.run.app/api/v1/ingest/status/<job_
   - `proposals` (incl. `workflow_state`) — the human-approval state machine.
   - `agent_events` — the full agent audit trail with per-agent latency.
   - `revenue_events` — the numbers the analytics screen aggregates.
+  - `scene_media` — exact source video, isolated segment, and extracted-frame lineage.
+  - `generation_jobs` — versioned Nano Banana/Veo status, prompts, decisions, and outputs.
 - Analytics endpoint reads straight from ClickHouse aggregates, no fixtures.
 
 Verify:
@@ -118,9 +120,32 @@ curl -s "https://cineyield-api-pg7lg7ldma-uc.a.run.app/api/v1/agents/events?limi
 - Every agent writes an `agent_events` row (agent name, tool name, latency, summary),
   giving a complete execution trace queryable at `/api/v1/agents/events`.
 
-## 8. Tests
+## 8. Real source-media and branded-generation workflow
 
-- Backend: **174 passed** (`cd apps/agent-api && pytest`).
+- Upload preprocessing uses `ffprobe`/`ffmpeg` to inspect the real upload, isolate a
+  source segment, and extract the exact JPEG frame used by Scene Analysis. Those derived
+  assets are private in Google Cloud Storage and streamed through range-capable API routes.
+- **Nano Banana 2** (`gemini-3.1-flash-image`, Vertex AI global endpoint) edits that exact
+  source frame using the selected sponsor, product, placement instructions, commercial
+  brief, and creative guardrails. Producers can regenerate, approve, or reject each revision.
+- **Veo 3.1 GA** (`veo-3.1-generate-001`, Vertex AI) is gated behind both commercial-term
+  approval and an approved reference frame. Gemini first reads the actual source segment
+  to write a camera/action continuity brief; Veo generates from the approved branded first
+  frame under that brief. The UI exposes playable Original / Branded comparison plus
+  Regenerate, Approve, and Reject controls.
+- This is intentionally an honest first-frame-to-video workflow: Veo 3.1 GA does not expose
+  arbitrary source-video inpainting in the API, so CineYield does not claim it does.
+
+Verify the proven production workflow:
+
+```bash
+curl -s https://cineyield-api-pg7lg7ldma-uc.a.run.app/api/v1/scenes/scene_b2aee2273df6
+curl -s https://cineyield-api-pg7lg7ldma-uc.a.run.app/api/v1/generations/proposals/prop_316889227e39
+```
+
+## 9. Tests
+
+- Backend: **186 tests passed**, including the credentialed MCP reachability test.
 - Frontend: ESLint clean, `tsc --noEmit` clean, `next build` clean.
 - Production browser E2E (Playwright against the deployed URLs): the canonical judged
   flow — library → real upload → ADK pipeline → scene → matches → deal → approve →
@@ -131,7 +156,7 @@ curl -s "https://cineyield-api-pg7lg7ldma-uc.a.run.app/api/v1/agents/events?limi
 
 ---
 
-## Live verification snapshot (2026-08-23)
+## Live verification snapshot (2026-08-29)
 
 | Check | Result |
 |-------|--------|
@@ -140,17 +165,21 @@ curl -s "https://cineyield-api-pg7lg7ldma-uc.a.run.app/api/v1/agents/events?limi
 | `CINEYIELD_MODE` (Cloud Run env) | `contest` |
 | Contest gate (`smoke-contest.sh`, prod) | **12 passed / 0 failed** |
 | Production smoke (`e2e-prod-smoke.sh`) | **6 passed / 0 failed** |
-| Backend pytest | **174 passed** |
+| Backend pytest | **186 passed** |
 | mcp-clickhouse live query | `total_scanned=27`, 7 ranked |
 | `agent_events` write during propose | row count `39 → 40` |
 | Analytics (real ClickHouse) | 27 campaigns · 12 scenes · 16 opportunities · 3 approved deals · $240,700 revenue |
+| Real rooftop upload | exact segment + frame persisted; 3 props detected; 3 opportunities created |
+| Nano Banana reference | `img_d01a6ef6a6304834` · completed and producer-approved |
+| Veo replacement | `vid_2634239e5d6e4226` · 1080p/24 fps · completed and producer-approved |
 
 ---
 
 ## What is REAL vs FICTIONAL (no overclaiming)
 
-- **Real**: all integrations above, deterministic scoring, approval persistence,
-  analytics, agent trace, Cloud Run deployment.
+- **Real**: all integrations above, source-media extraction, Gemini analysis, deterministic
+  scoring, approval persistence, Nano Banana editing, Veo generation, analytics, agent trace,
+  and Cloud Run deployment.
 - **Fictional demo data**: show/character names and scene library content are invented;
   the judged upload uses an engineering test clip, not licensed footage.
 - **Illustrative**: revenue/market figures are representative, not audited financials.

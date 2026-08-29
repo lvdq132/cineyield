@@ -1,4 +1,5 @@
 """Tests for the content library API — GET /api/v1/content[/{asset_id}]."""
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
@@ -110,3 +111,28 @@ def test_get_content_asset_returns_asset_with_scenes():
     assert body["title"] == "HORIZONS"
     assert len(body["scenes"]) == 1
     assert body["scenes"][0]["name"] == "Rooftop Reflection"
+
+
+def test_content_asset_query_avoids_clickhouse_nested_aggregate_alias():
+    fake = MagicMock()
+    result = MagicMock()
+    result.column_names = [
+        "id", "title", "subtitle", "format", "status", "scene_count",
+        "opportunity_count", "estimated_value_usd", "latest_updated_at",
+    ]
+    now = datetime(2026, 8, 29, 12, 0, 0)
+    result.result_rows = [[
+        "horizons", "HORIZONS", "Series", "tv_series", "analyzed",
+        312, 47, 2_840_000.0, now,
+    ]]
+    fake.query.return_value = result
+
+    with patch("cineyield.db.repository.get_clickhouse_client", return_value=fake):
+        from cineyield.db.repository import list_content_assets
+
+        assets = list_content_assets()
+
+    sql = fake.query.call_args[0][0]
+    assert "max(updated_at) AS latest_updated_at" in sql
+    assert "max(updated_at) AS updated_at" not in sql
+    assert assets[0]["updated_at"] == now

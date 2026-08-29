@@ -13,6 +13,7 @@ import { getAuditTrail } from "@/data/agent-events";
 import { DataSourceNotice } from "@/components/ui/DataSourceNotice";
 import type { DataSource } from "@/lib/data-source";
 import type { DealDecisionAction } from "@/lib/api-client";
+import { BrandedMediaStudio } from "@/components/deal/BrandedMediaStudio";
 
 interface DealViewProps {
   proposal: Proposal;
@@ -173,6 +174,8 @@ export function DealView({
           <AuditTrailPanel events={audit} />
         </div>
       </div>
+
+      <BrandedMediaStudio proposalId={proposal.id} dealApproved={approved} />
     </div>
   );
 }

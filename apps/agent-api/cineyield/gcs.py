@@ -79,6 +79,78 @@ def upload_video_file(path: str | Path, asset_id: str | None = None) -> str:
     return upload_video(data, path.name, content_type, asset_id=asset_id)
 
 
+def upload_media_bytes(
+    data: bytes,
+    object_name: str,
+    content_type: str,
+    *,
+    metadata: dict[str, str] | None = None,
+) -> str:
+    """Upload a private derived-media object and return its gs:// URI."""
+    bucket = _get_bucket()
+    blob = bucket.blob(object_name.lstrip("/"))
+    if metadata:
+        blob.metadata = metadata
+    blob.upload_from_string(data, content_type=content_type)
+    uri = f"gs://{bucket.name}/{blob.name}"
+    logger.info("Uploaded derived media → %s (%d bytes)", uri, len(data))
+    return uri
+
+
+def upload_media_file(
+    path: str | Path,
+    object_name: str,
+    content_type: str | None = None,
+    *,
+    metadata: dict[str, str] | None = None,
+) -> str:
+    path = Path(path)
+    resolved_type = content_type or mimetypes.guess_type(str(path))[0] or "application/octet-stream"
+    return upload_media_bytes(
+        path.read_bytes(), object_name, resolved_type, metadata=metadata
+    )
+
+
+def split_gcs_uri(gcs_uri: str) -> tuple[str, str]:
+    if not gcs_uri.startswith("gs://"):
+        raise ValueError("Expected a gs:// URI")
+    bucket_name, separator, object_name = gcs_uri[5:].partition("/")
+    if not separator or not bucket_name or not object_name:
+        raise ValueError(f"Malformed GCS URI: {gcs_uri}")
+    return bucket_name, object_name
+
+
+def download_media_bytes(
+    gcs_uri: str,
+    *,
+    start: int | None = None,
+    end: int | None = None,
+) -> bytes:
+    """Download all or a byte range from a private GCS object."""
+    from google.cloud import storage  # type: ignore[import-untyped]
+
+    settings = get_settings()
+    bucket_name, object_name = split_gcs_uri(gcs_uri)
+    client = storage.Client(project=settings.google_cloud_project or None)
+    return client.bucket(bucket_name).blob(object_name).download_as_bytes(start=start, end=end)
+
+
+def get_media_metadata(gcs_uri: str) -> dict[str, object]:
+    """Return size/content metadata for a private GCS object."""
+    from google.cloud import storage  # type: ignore[import-untyped]
+
+    settings = get_settings()
+    bucket_name, object_name = split_gcs_uri(gcs_uri)
+    client = storage.Client(project=settings.google_cloud_project or None)
+    blob = client.bucket(bucket_name).blob(object_name)
+    blob.reload()
+    return {
+        "size": int(blob.size or 0),
+        "content_type": blob.content_type or "application/octet-stream",
+        "etag": blob.etag,
+    }
+
+
 def gcs_uri_exists(gcs_uri: str) -> bool:
     """Check whether a gs:// URI is accessible."""
     try:
