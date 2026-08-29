@@ -1,0 +1,13 @@
+Finished film contains valuable sponsor inventory, but finding the right brand, clearing the context, and rebuilding the shot is slow and disconnected. CineYield closes that loop.
+
+A producer uploads a finished cut. The source is stored in Google Cloud, isolated into an exact segment and frame, and Gemini reads the real video. Here it identifies the headphones, mug, and phone, then scores brand safety, narrative weight, mood, and natural placement zones.
+
+The Market Agent queries live campaign demand through the official ClickHouse MCP server. Deterministic scoring ranks the commercial fit, while rights and creative agents enforce the constraints.
+
+The producer reviews the sponsor brief and deal terms, then records approval in ClickHouse. That decision unlocks production.
+
+Nano Banana receives the exact source frame, chosen sponsor, product, placement instructions, and creative guardrails. It returns a photorealistic reference with correct lighting, scale, contact shadow, and no overlays.
+
+Gemini then reads the source segment for camera continuity. Veo animates the approved branded frame into the finished replacement shot. The producer can compare original and branded versions, regenerate, approve, or reject every revision.
+
+CineYield turns a finished scene into a traceable sponsor deal and production-ready branded media, under producer control.
