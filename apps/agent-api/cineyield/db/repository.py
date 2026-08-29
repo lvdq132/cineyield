@@ -159,13 +159,15 @@ def search_sponsor_ready_scenes(
     client = get_clickhouse_client()
     result = client.query(
         "SELECT DISTINCT "
-        "  po.id AS opportunity_id, po.scene_id, po.asset_id, "
+        "  po.id AS opportunity_id, po.scene_id AS scene_id, po.asset_id AS asset_id, "
         "  ca.title AS asset_title, ca.subtitle AS asset_subtitle, "
         "  s.episode, s.name AS scene_name, s.summary AS scene_summary, "
         "  s.mood, s.narrative_weight, po.category, po.object_label, "
         "  po.timecode_start, po.timecode_end, po.screen_time_seconds, "
-        "  po.naturalness_score, po.brand_safety_score, "
-        "  po.rights_status, po.estimated_value_usd, "
+        "  po.naturalness_score AS naturalness_score, "
+        "  po.brand_safety_score AS brand_safety_score, "
+        "  po.rights_status AS rights_status, "
+        "  po.estimated_value_usd AS estimated_value_usd, "
         "  round("
         "    (po.naturalness_score * 0.38) + "
         "    (po.brand_safety_score * 0.27) + "
